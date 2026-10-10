@@ -38,9 +38,10 @@ spec:
           image: registry.example/cerebro-os:1.0.0
           imagePullPolicy: IfNotPresent
           ports:
-            - { name: http, containerPort: 8080 }
+            - { name: http, containerPort: 4700 }
           env:
-            - { name: PORT, value: "8080" }
+            - { name: PORT, value: "4700" }
+            - { name: HOST, value: "0.0.0.0" }      # listen on the pod network
             - { name: WORKERS, value: "1" }        # one process per pod; scale with replicas/HPA
             - { name: TRUST_PROXY, value: "1" }
             - { name: REFRESH_OPENAI_RANGES, value: "1" }

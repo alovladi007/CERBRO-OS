@@ -2,7 +2,7 @@
 //
 //   node server/server.mjs
 //
-// Env: PORT (8080) HOST (0.0.0.0) WEB_ROOT (../web) TRUST_PROXY (0|1) REFRESH_OPENAI_RANGES (0|1)
+// Env: PORT (4700) HOST (127.0.0.1) WEB_ROOT (../web) TRUST_PROXY (0|1) REFRESH_OPENAI_RANGES (0|1)
 //      RATE_LIMIT (requests/minute/IP, 300; 0 disables) LOG (1|0) WORKERS (1|n|auto) CACHE_MB (64)
 //
 // Stateless by design: every replica serves the same static tree and keeps only bounded
@@ -476,8 +476,8 @@ function workerCount(v) {
 }
 
 function startWorker() {
-  const port = Number(process.env.PORT || 8080);
-  const host = process.env.HOST || '0.0.0.0';
+  const port = Number(process.env.PORT || 4700);
+  const host = process.env.HOST || '127.0.0.1';
   const server = createServer();
   server.listen(port, host, () => {
     if (process.env.LOG !== '0') {

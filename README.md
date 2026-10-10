@@ -9,9 +9,15 @@ Cerebro OS grew out of the *AXON Research v0.1* prototype. It is a ground-up reb
 ## Quick start
 
 ```sh
-npm start            # http://localhost:8080  (Node ≥ 20, no npm install needed)
+npm start            # http://localhost:4700  (Node ≥ 20, no npm install needed)
+npm run dev          # http://localhost:4701 with access logs
 npm test             # 57 tests: numerical engines, app logic, policy, server
 npm run check        # syntax-check every module
+```
+
+Ports are listed in [`docs/PORTS.md`](docs/PORTS.md); they avoid every port reserved by the other local platforms, and a test enforces this.
+
+```sh
 ```
 
 - `/` is the commercial landing page, with `/privacy.html`, `/terms.html` and `/security.html`.

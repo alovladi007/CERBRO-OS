@@ -20,7 +20,7 @@ test('egressDecision allows the five research origins and same-origin', () => {
   assert.equal(egressDecision('https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=x', ORIGIN).allowed, true);
   assert.equal(egressDecision('/api/policy', ORIGIN).allowed, true);
   assert.equal(egressDecision(`${ORIGIN}/app/`, ORIGIN).allowed, true);
-  assert.equal(egressDecision('http://localhost:5173/x', 'http://localhost:5173').allowed, true);
+  assert.equal(egressDecision('http://localhost:4701/x', 'http://localhost:4701').allowed, true);
 });
 
 test('egressDecision blocks OpenAI, plain http, unknown hosts and malformed URLs', () => {
