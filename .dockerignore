@@ -1,0 +1,22 @@
+# Keep the build context minimal: the image only needs package.json, server/ and web/.
+.git
+.github
+.gitignore
+node_modules
+npm-debug.log*
+tests
+docs
+deploy
+scripts
+netlify
+netlify.toml
+vercel.json
+.vercel
+.netlify
+Dockerfile
+.dockerignore
+*.md
+.env
+.env.*
+.DS_Store
+coverage

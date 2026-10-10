@@ -1,0 +1,104 @@
+# Cerebro OS — Kubernetes deployment (stateless; scale horizontally with the HPA).
+#   docker build -t registry.example/cerebro-os:1.0.0 . && docker push registry.example/cerebro-os:1.0.0
+#   kubectl apply -f deploy/k8s.yaml
+# Put an Ingress / cloud LB in front of the Service and keep TRUST_PROXY=1 so the OpenAI IP-range
+# check sees the real client address (X-Forwarded-For / CF-Connecting-IP).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cerebro-os
+  labels: { app.kubernetes.io/name: cerebro-os }
+spec:
+  replicas: 3
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
+  selector:
+    matchLabels: { app.kubernetes.io/name: cerebro-os }
+  template:
+    metadata:
+      labels: { app.kubernetes.io/name: cerebro-os }
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 20
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile: { type: RuntimeDefault }
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels: { app.kubernetes.io/name: cerebro-os }
+      containers:
+        - name: web
+          image: registry.example/cerebro-os:1.0.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - { name: http, containerPort: 8080 }
+          env:
+            - { name: PORT, value: "8080" }
+            - { name: WORKERS, value: "1" }        # one process per pod; scale with replicas/HPA
+            - { name: TRUST_PROXY, value: "1" }
+            - { name: REFRESH_OPENAI_RANGES, value: "1" }
+            - { name: RATE_LIMIT, value: "300" }
+            - { name: LOG, value: "1" }
+          readinessProbe:
+            httpGet: { path: /readyz, port: http }
+            periodSeconds: 5
+            failureThreshold: 2
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            initialDelaySeconds: 5
+            periodSeconds: 15
+            failureThreshold: 3
+          lifecycle:
+            preStop:
+              exec: { command: ["sleep", "5"] }   # let the LB drop the pod before SIGTERM drains it
+          resources:
+            requests: { cpu: 100m, memory: 96Mi }
+            limits: { cpu: "1", memory: 256Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cerebro-os
+  labels: { app.kubernetes.io/name: cerebro-os }
+spec:
+  type: ClusterIP
+  selector: { app.kubernetes.io/name: cerebro-os }
+  ports:
+    - { name: http, port: 80, targetPort: http }
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: cerebro-os
+spec:
+  scaleTargetRef: { apiVersion: apps/v1, kind: Deployment, name: cerebro-os }
+  minReplicas: 3
+  maxReplicas: 20
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target: { type: Utilization, averageUtilization: 65 }
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: cerebro-os
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels: { app.kubernetes.io/name: cerebro-os }

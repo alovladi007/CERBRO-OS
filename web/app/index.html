@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Cerebro OS — Research Workspace</title>
+  <meta name="description" content="Cerebro OS workspace: federated evidence search, systematic-review screening, dataset discovery, verified statistics, signal analysis, meta-analysis and study protocols — local-first.">
+  <meta name="robots" content="noindex, nofollow, noai, noimageai">
+  <meta name="GPTBot" content="noindex, nofollow">
+  <meta name="ChatGPT-User" content="noindex, nofollow">
+  <meta name="OAI-SearchBot" content="noindex, nofollow">
+  <meta name="theme-color" content="#5b4dff">
+  <meta name="referrer" content="no-referrer">
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="stylesheet" href="/assets/css/tokens.css">
+  <link rel="stylesheet" href="/app/app.css">
+  <script type="module" src="/app/js/boot.mjs"></script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <div class="app">
+    <aside class="sidebar" id="sidebar" aria-label="Workspace navigation">
+      <div class="sidebar-top">
+        <a class="brand" href="/" title="Cerebro OS home">
+          <img class="brand-mark" src="/assets/favicon.svg" alt="" width="28" height="28">
+          <span>Cerebro<b>OS</b></span>
+        </a>
+        <button class="icon-btn only-mobile" id="close-nav" aria-label="Close navigation">✕</button>
+      </div>
+      <div class="project-switch">
+        <label for="project-select" class="nav-label">Project</label>
+        <div class="project-row">
+          <select id="project-select" aria-label="Active project"></select>
+          <button class="icon-btn" id="new-project" aria-label="New project" title="New project">+</button>
+        </div>
+      </div>
+      <nav id="nav" aria-label="Main"></nav>
+      <div class="sidebar-foot">
+        <div class="storage-pill" id="storage-pill"><i></i><span>Local-first workspace</span></div>
+        <button class="palette-hint" id="open-palette" type="button"><span>Search &amp; commands</span><kbd>⌘K</kbd></button>
+      </div>
+    </aside>
+    <div class="scrim" id="scrim" hidden></div>
+    <div class="shell">
+      <header class="topbar">
+        <button class="icon-btn only-mobile" id="open-nav" aria-label="Open navigation" aria-controls="sidebar" aria-expanded="false">☰</button>
+        <div class="crumbs"><span id="crumb-project">Project</span><span class="sep">/</span><strong id="crumb">Overview</strong></div>
+        <div class="top-actions">
+          <span class="pill research">Research use only</span>
+          <button class="icon-btn" id="theme-toggle" aria-label="Toggle colour theme" title="Toggle theme"></button>
+        </div>
+      </header>
+      <main id="main" tabindex="-1">
+        <noscript><div class="notice warn">Cerebro OS needs JavaScript enabled to run the research workspace.</div></noscript>
+        <div class="boot">Loading workspace…</div>
+      </main>
+      <footer class="app-foot">
+        <span>Cerebro OS · Research use only — not a medical device, no clinical decision support.</span>
+        <a href="#settings">Methods, privacy &amp; policy</a>
+      </footer>
+    </div>
+  </div>
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+  <dialog id="dialog"><button class="icon-btn dialog-close" id="dialog-close" aria-label="Close dialog">✕</button><div id="dialog-body"></div></dialog>
+  <dialog id="palette" class="palette" aria-label="Command palette">
+    <input id="palette-input" placeholder="Jump to a tool, project, or action…" autocomplete="off" aria-label="Search commands">
+    <ul id="palette-list" role="listbox"></ul>
+  </dialog>
+</body>
+</html>

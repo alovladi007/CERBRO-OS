@@ -1,0 +1,14 @@
+{
+  "name": "Cerebro OS",
+  "short_name": "Cerebro OS",
+  "description": "The operating system for neuroscience research: evidence, screening, datasets, verified analysis and protocols — local-first.",
+  "start_url": "/app/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#080b17",
+  "theme_color": "#5b4dff",
+  "categories": ["education", "productivity", "medical"],
+  "icons": [
+    { "src": "/assets/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

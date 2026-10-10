@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Privacy Policy — Cerebro OS</title>
+<meta name="description" content="How Cerebro OS handles data: local-first storage, no trackers, no third-party analytics, and no use of your content for AI training.">
+<meta name="robots" content="index, follow, noai, noimageai">
+<meta name="GPTBot" content="noindex, nofollow">
+<meta name="ChatGPT-User" content="noindex, nofollow">
+<meta name="OAI-SearchBot" content="noindex, nofollow">
+<meta name="theme-color" content="#f6f7fb" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#080b17" media="(prefers-color-scheme: dark)">
+<meta name="color-scheme" content="light dark">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Cerebro OS">
+<meta property="og:title" content="Privacy Policy — Cerebro OS">
+<meta property="og:description" content="How Cerebro OS handles data: local-first storage, no trackers, no third-party analytics, and no use of your content for AI training.">
+<meta property="og:url" content="/privacy.html">
+<meta name="twitter:card" content="summary">
+<link rel="canonical" href="/privacy.html">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="stylesheet" href="/assets/css/tokens.css">
+<link rel="stylesheet" href="/assets/css/site.css">
+<script type="module" src="/assets/js/site.mjs"></script>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="wrap header-inner">
+    <a class="brand" href="/" aria-label="Cerebro OS home">
+      <img src="/assets/favicon.svg" alt="" width="28" height="28">
+      <span>Cerebro <span class="os">OS</span></span>
+    </a>
+    <nav class="site-nav" id="site-nav" aria-label="Primary">
+      <ul>
+        <li><a href="/#platform">Platform</a></li>
+        <li><a href="/#lab">Lab</a></li>
+        <li><a href="/#security">Security</a></li>
+        <li><a href="/#pricing">Pricing</a></li>
+        <li><a href="/#faq">FAQ</a></li>
+      </ul>
+      <div class="nav-launch"><a class="btn btn-primary" href="/app/">Launch workspace</a></div>
+    </nav>
+    <div class="header-actions">
+      <button class="icon-btn theme-toggle" type="button" aria-label="Toggle color theme" title="Toggle color theme"><svg class="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/></svg><svg class="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+      <a class="btn btn-primary btn-sm btn-launch" href="/app/">Launch workspace</a>
+      <button class="icon-btn menu-btn" type="button" aria-controls="site-nav" aria-expanded="false" aria-label="Open menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path class="m-open" d="M4 7h16M4 12h16M4 17h16"/><path class="m-close" d="M6 6l12 12M18 6 6 18"/></svg></button>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+  <section class="doc-hero">
+    <div class="wrap">
+      <span class="eyebrow">Legal</span>
+      <h1>Privacy Policy</h1>
+      <p>Cerebro OS is built so that your research data does not need to reach us at all. This policy explains the little we do process.</p>
+      <p class="doc-meta">Last updated: [DATE] · Effective: [DATE]</p>
+      <div class="template-note" role="note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 2 20h20Z"/><path d="M12 10v4M12 17h.01"/></svg><span><strong>Template — have counsel review before launch.</strong> Bracketed items are placeholders for the operator to complete.</span></div>
+    </div>
+  </section>
+  <div class="wrap doc-layout">
+    <nav class="toc" aria-label="On this page">
+      <h2>On this page</h2>
+      <ol>
+        <li><a href="#summary">Summary</a></li>
+        <li><a href="#local">Local-first data</a></li>
+        <li><a href="#network">Network requests</a></li>
+        <li><a href="#server">Server logs</a></li>
+        <li><a href="#cookies">Cookies &amp; tracking</a></li>
+        <li><a href="#ai">AI training</a></li>
+        <li><a href="#rights">Your rights</a></li>
+        <li><a href="#contact">Contact</a></li>
+      </ol>
+    </nav>
+    <article class="prose">
+      <h2 id="summary">Summary</h2>
+      <ul>
+        <li>Your projects, datasets and analysis results are stored <strong>in your browser</strong>, not on our servers.</li>
+        <li>We use <strong>no third-party analytics, advertising pixels, fonts or CDNs</strong>.</li>
+        <li>We do <strong>not sell</strong> personal information and do not use your content to train AI models.</li>
+      </ul>
+
+      <h2 id="local">Local-first data</h2>
+      <p>The Cerebro OS workspace stores data in your browser's IndexedDB and local storage. Analyses are computed on your device. Participant-level rows you load into the Analysis Lab are never transmitted by the application. Data leaves your device only when you explicitly export it (for example, as CSV, BibTeX, RIS, Markdown or JSON).</p>
+      <p>Because data is stored locally, clearing your browser's site data will delete it. You are responsible for exporting and backing up your work.</p>
+
+      <h2 id="network">Network requests made by the workspace</h2>
+      <p>When you run a literature or dataset search, your browser sends your <em>search query</em> directly to the relevant public research API. A Content-Security-Policy restricts the workspace to an allowlist of these services:</p>
+      <ul>
+        <li>Europe PMC</li>
+        <li>NCBI E-utilities (PubMed)</li>
+        <li>ClinicalTrials.gov</li>
+        <li>OpenNeuro</li>
+        <li>DANDI Archive</li>
+      </ul>
+      <p>Those services process your queries under their own privacy policies. Your local datasets are not included in these requests.</p>
+
+      <h2 id="server">Server logs</h2>
+      <p>The servers that deliver the Cerebro OS website and application files may record standard request metadata (such as IP address, user-agent, requested path and timestamp) for security, abuse prevention and operations. [Retention period: e.g. 30 days.] These logs are not used for advertising or profiling.</p>
+      <p>If you self-host Cerebro OS, your organisation operates the server and controls these logs.</p>
+
+      <h2 id="cookies">Cookies &amp; tracking</h2>
+      <p>We do not use tracking cookies. The site stores your preferred color theme in local storage under the key <code>cerebro-theme</code>; it never leaves your browser.</p>
+
+      <h2 id="ai">AI training</h2>
+      <p>We do not use your content to train, fine-tune or evaluate AI models, and we take technical measures to prevent OpenAI's crawlers and agents from accessing this site. See our <a href="/security.html">Security</a> page and <a href="/terms.html">Terms</a>.</p>
+
+      <h2 id="rights">Your rights</h2>
+      <p>Depending on where you live, you may have rights to access, correct, delete or object to processing of personal data we hold about you. Since we generally hold none beyond short-lived server logs, most requests can be satisfied by clearing your browser data. To exercise any right, contact us below. [Add jurisdiction-specific disclosures, e.g. GDPR controller details, CCPA notices.]</p>
+
+      <h2 id="contact">Contact</h2>
+      <p>[Legal entity name], [address]. Email: <a href="mailto:privacy@cerebro-os.example">privacy@cerebro-os.example</a></p>
+    </article>
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="foot-grid">
+      <div class="foot-brand">
+        <a class="brand" href="/" aria-label="Cerebro OS home"><img src="/assets/favicon.svg" alt="" width="28" height="28"><span>Cerebro <span class="os">OS</span></span></a>
+        <p>A local-first research operating system for neuroscience and neurology: evidence, data, analysis and protocols in one workspace.</p>
+      </div>
+      <div>
+        <h4>Product</h4>
+        <ul>
+          <li><a href="/#platform">Platform</a></li>
+          <li><a href="/#lab">Analysis Lab</a></li>
+          <li><a href="/#pricing">Pricing</a></li>
+          <li><a href="/app/">Launch workspace</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Trust</h4>
+        <ul>
+          <li><a href="/security.html">Security</a></li>
+          <li><a href="/privacy.html">Privacy</a></li>
+          <li><a href="/terms.html">Terms</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Resources</h4>
+        <ul>
+          <li><a href="/#faq">FAQ</a></li>
+          <li><a href="/#rigor">Methods &amp; validation</a></li>
+          <li><a href="mailto:security@cerebro-os.example">Report a vulnerability</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span>&copy; 2026 Cerebro OS. All rights reserved.</span>
+      <span class="ruo">Research use only. Not a medical device.</span>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

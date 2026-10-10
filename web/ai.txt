@@ -1,0 +1,35 @@
+# Cerebro OS — ai.txt (Spawning ai.txt format, https://site.spawning.ai/spawning-ai-txt)
+#
+# The Cerebro OS operator does not permit any content on this site — text, data, code,
+# images, audio or video — to be used to train, fine-tune, or ground AI/ML models.
+#
+# In particular, OpenAI and its products and agents (GPTBot, ChatGPT-User, OAI-SearchBot,
+# ChatGPT-Agent, ChatGPT browsing, Operator/agent mode) are not permitted to access this
+# platform at all. Such requests are refused with HTTP 403. robots.txt and this file remain
+# readable so that crawlers can discover the policy.
+
+User-Agent: *
+Disallow: /
+Disallow: *.txt
+Disallow: *.pdf
+Disallow: *.doc
+Disallow: *.docx
+Disallow: *.odt
+Disallow: *.html
+Disallow: *.htm
+Disallow: *.md
+Disallow: *.csv
+Disallow: *.json
+Disallow: *.js
+Disallow: *.mjs
+Disallow: *.css
+Disallow: *.svg
+Disallow: *.png
+Disallow: *.jpg
+Disallow: *.jpeg
+Disallow: *.gif
+Disallow: *.webp
+Disallow: *.mp3
+Disallow: *.wav
+Disallow: *.mp4
+Disallow: *.webm

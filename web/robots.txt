@@ -1,0 +1,27 @@
+# Cerebro OS — robots.txt
+#
+# Operator policy: OpenAI crawlers and agents (GPTBot, ChatGPT-User, OAI-SearchBot,
+# ChatGPT-Agent) are NOT permitted to crawl, fetch, index, or train on any part of this
+# site. This file is advisory; the server additionally refuses these agents by user agent,
+# by OpenAI's published IP ranges, and by ChatGPT Referer/Origin (HTTP 403).
+# See /ai.txt for the AI-training policy.
+
+User-agent: GPTBot
+Disallow: /
+
+User-agent: ChatGPT-User
+Disallow: /
+
+User-agent: OAI-SearchBot
+Disallow: /
+
+User-agent: ChatGPT-Agent
+Disallow: /
+
+# Everyone else may index the public pages. /app/ is the interactive research workspace,
+# not content, and should not be indexed.
+User-agent: *
+Allow: /
+Disallow: /app/
+
+# Sitemap: https://cerebro-os.example/sitemap.xml

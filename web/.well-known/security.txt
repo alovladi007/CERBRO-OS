@@ -1,0 +1,6 @@
+# Cerebro OS security contact (RFC 9116). Replace the placeholder domain before deploying.
+Contact: mailto:security@cerebro-os.example
+Expires: 2027-10-10T00:00:00.000Z
+Policy: https://cerebro-os.example/security.html
+Preferred-Languages: en
+Canonical: https://cerebro-os.example/.well-known/security.txt
