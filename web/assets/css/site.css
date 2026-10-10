@@ -48,7 +48,6 @@ a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset:
 .site-nav ul { list-style: none; display: flex; gap: 28px; }
 .site-nav ul a { color: var(--ink-2); font-size: 14px; text-decoration: none; }
 .site-nav ul a:hover { color: var(--ink); }
-.site-nav .nav-cta { display: none; }
 .header-actions { margin-left: auto; display: flex; align-items: center; gap: 10px; }
 .icon-btn {
   display: inline-grid; place-items: center; width: 34px; height: 34px; padding: 0;
@@ -79,10 +78,8 @@ a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset:
   .site-nav ul { flex-direction: column; gap: 0; width: min(1160px, 100% - 32px); margin-inline: auto; }
   .site-nav li + li { border-top: 1px solid var(--line); }
   .site-nav ul a { display: block; padding: 13px 0; font-size: 16px; color: var(--ink); }
-  .site-nav .nav-cta { display: block; width: min(1160px, 100% - 32px); margin: 12px auto 0; }
-  .site-nav .nav-cta .btn { width: 100%; }
 }
-@media (max-width: 440px) { .header-actions .btn-launch { display: none; } }
+@media (max-width: 440px) { .header-actions { gap: 6px; } .header-actions .btn-launch { padding: 6px 10px; font-size: 13px; } }
 
 /* ---------- Sections ---------- */
 .section { padding-block: 104px; border-top: 1px solid var(--line); }
@@ -128,8 +125,13 @@ a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset:
   display: block; width: 100%; height: auto; aspect-ratio: 16 / 10;
   border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--bg-sunken);
 }
-:root[data-theme="dark"] .figure img { filter: brightness(.92); }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .figure img { filter: brightness(.92); } }
+:root .figure img.shot-dark { display: none; }
+:root[data-theme="dark"] .figure img.shot-light { display: none; }
+:root[data-theme="dark"] .figure img.shot-dark { display: block; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .figure img.shot-light { display: none; }
+  :root:not([data-theme="light"]) .figure img.shot-dark { display: block; }
+}
 .figure figcaption { margin-top: 14px; max-width: 72ch; font-size: 13.5px; line-height: 1.55; color: var(--muted); }
 .figure figcaption b { color: var(--ink); font-weight: 600; }
 .figure-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }

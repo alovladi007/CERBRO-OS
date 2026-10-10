@@ -1,8 +1,8 @@
 // Cerebro OS service worker: offline app shell. Analysis tools work offline;
 // live research APIs are never cached (always network) so results stay current.
-const VERSION = 'cerebro-1.1.0';
+const VERSION = 'cerebro-1.1.1';
 const SHELL = [
-  '/app/', '/app/index.html', '/app/app.css', '/assets/css/tokens.css', '/assets/favicon.svg', '/manifest.webmanifest',
+  '/app/', '/app/index.html', '/app/app.css', '/assets/css/tokens.css', '/assets/favicon.svg', '/manifest.webmanifest', '/assets/js/theme-init.js',
   '/assets/fonts/inter-var.woff2', '/assets/fonts/source-serif-4-var.woff2', '/assets/fonts/source-serif-4-var-italic.woff2', '/assets/fonts/ibm-plex-mono-400.woff2', '/assets/fonts/ibm-plex-mono-500.woff2',
   '/app/js/boot.mjs', '/app/js/main.mjs', '/app/js/guard.mjs', '/app/js/policy.mjs', '/app/js/store.mjs', '/app/js/ui.mjs', '/app/js/charts.mjs', '/app/js/sources.mjs',
   '/app/js/views/overview.mjs', '/app/js/views/evidence.mjs', '/app/js/views/screening.mjs', '/app/js/views/datasets.mjs', '/app/js/views/lab.mjs', '/app/js/views/protocols.mjs', '/app/js/views/library.mjs', '/app/js/views/settings.mjs',
