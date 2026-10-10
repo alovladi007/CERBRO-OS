@@ -16,7 +16,7 @@ export function recordHTML(r, i, { saved = false, showSave = true } = {}) {
     <div class="abstract-slot"></div>
     <div class="row">
       <button class="btn small ghost" data-abstract="${i}">${icon('doc', 14)} Abstract</button>
-      ${showSave ? `<button class="btn small${has ? '' : ' primary'}" data-save="${i}" ${has ? 'disabled' : ''}>${has ? `${icon('check', 14)} Saved` : `${icon('plus', 14)} Save to project`}</button>` : ''}
+      ${showSave ? `<button class="btn small" data-save="${i}" ${has ? 'disabled' : ''}>${has ? `${icon('check', 14)} Saved` : `${icon('plus', 14)} Save to project`}</button>` : ''}
       ${saved ? `<button class="btn small danger" data-remove="${esc(r.key)}">${icon('trash', 14)} Remove</button>` : ''}
     </div>
   </article>`;

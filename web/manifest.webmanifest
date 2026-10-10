@@ -5,8 +5,8 @@
   "start_url": "/app/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#080b17",
-  "theme_color": "#5b4dff",
+  "background_color": "#fafaf7",
+  "theme_color": "#1f4d3a",
   "categories": ["education", "productivity", "medical"],
   "icons": [
     { "src": "/assets/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }

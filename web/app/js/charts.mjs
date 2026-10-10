@@ -2,7 +2,7 @@
 // bound to theme tokens, so every chart follows light/dark mode automatically.
 import { esc } from './ui.mjs';
 
-const W = 720, H = 300, M = { l: 58, r: 20, t: 18, b: 46 };
+const W = 900, H = 320, M = { l: 62, r: 20, t: 18, b: 46 };
 
 function niceTicks(lo, hi, count = 5) {
   if (!Number.isFinite(lo) || !Number.isFinite(hi)) return [0, 1];
@@ -84,7 +84,7 @@ export function scatterChart(points, { xLabel = '', yLabel = '', fit = null, tit
 
 /** Forest plot for meta-analysis. */
 export function forestPlot(studies, result, { exp = false, label = 'Effect' } = {}) {
-  const tr = v => exp ? Math.exp(v) : v, rows = studies.length, rowH = 26, top = 30, h = top + rows * rowH + 92, w = 760, L = 210, R = 600;
+  const tr = v => { const x = exp ? Math.exp(v) : v; return Math.abs(x) < 5e-3 ? 0 : x; }, rows = studies.length, rowH = 26, top = 30, h = top + rows * rowH + 92, w = 780, L = 200, R = 530;
   const vals = [...studies.flatMap(s => [s.effect - 1.96 * s.se, s.effect + 1.96 * s.se]), result.lower, result.upper, 0, ...(result.prediction || [])];
   const lo = Math.min(...vals), hi = Math.max(...vals), X = v => L + (v - lo) / ((hi - lo) || 1) * (R - L);
   const maxW = Math.max(...result.weights);
