@@ -17,16 +17,16 @@ configs from it, and `npm test` fails if any generated file has drifted.
 ## Run locally
 
 ```sh
-npm start                    # http://0.0.0.0:8080
-npm run dev                  # http://localhost:5173 with access logs
+npm start                    # http://127.0.0.1:4700
+npm run dev                  # http://localhost:4701 with access logs
 npm test                     # node:test suites (policy, server, science)
 npm run check                # node --check on every .js/.mjs file
 ```
 
 | Env var | Default | Meaning |
 |---|---|---|
-| `PORT` | `8080` | Listen port |
-| `HOST` | `0.0.0.0` | Listen address |
+| `PORT` | `4700` | Listen port |
+| `HOST` | `127.0.0.1` | Listen address (loopback only by default; the Docker image sets `0.0.0.0` inside the container, and compose publishes it on 127.0.0.1) |
 | `WEB_ROOT` | `../web` (relative to `server/`) | Directory to serve |
 | `TRUST_PROXY` | `0` | `1` = take the client IP from `CF-Connecting-IP`, else the first `X-Forwarded-For` entry. Enable this **only** behind a proxy or load balancer that sets those headers, because otherwise clients can spoof them. |
 | `REFRESH_OPENAI_RANGES` | `0` | `1` = fetch OpenAI's published IP ranges at boot and every 24 h. On failure the server keeps the bundled snapshot and never crashes. |
@@ -60,9 +60,9 @@ Behavior of the server:
 
 ```sh
 docker build -t cerebro-os .
-docker run --rm -p 8080:8080 -e REFRESH_OPENAI_RANGES=1 cerebro-os
+docker run --rm -p 127.0.0.1:4700:4700 -e REFRESH_OPENAI_RANGES=1 cerebro-os
 docker compose -f deploy/docker-compose.yml up --build
-docker compose -f deploy/docker-compose.yml --profile nginx up --scale app=3   # + static nginx edge on :8081
+docker compose -f deploy/docker-compose.yml --profile nginx up   # + static nginx edge on 127.0.0.1:4702
 ```
 
 The image is `node:22-alpine` running as the unprivileged `node` user, and contains only
