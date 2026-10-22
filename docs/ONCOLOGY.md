@@ -35,10 +35,10 @@ Each new origin goes into `CONNECT_ALLOWLIST` in `web/app/js/policy.mjs`, follow
 ### Clinical and translational researchers: oncology analytics suite *(the core)*
 | Area | Methods to add | Status |
 |---|---|---|
-| Survival | Cox proportional hazards (Efron ties), hazard ratios with CIs, Schoenfeld-residual PH test, stratified Cox, restricted mean survival time (RMST), landmark analysis, time-dependent covariates | Kaplan–Meier and log-rank already exist |
-| Competing risks | Cumulative incidence (Aalen–Johansen), Gray's test, Fine–Gray subdistribution hazards | New |
-| Response and trial plots | Waterfall, swimmer and spider plots; ORR and DCR with exact (Clopper–Pearson) CIs | New |
-| Trial design | Simon two-stage, single-arm exact binomial, BOIN / 3+3 dose finding, group-sequential boundaries (O'Brien–Fleming, Lan–DeMets), non-inferiority, events-driven sample size | Schoenfeld events already exist |
+| Survival | Cox proportional hazards (Efron ties), hazard ratios with CIs, Schoenfeld-residual PH test, stratified Cox, restricted mean survival time (RMST), landmark analysis, time-dependent covariates | **Shipped:** Cox (Efron/Breslow, strata), PH test, RMST. Next: landmark, time-dependent covariates |
+| Competing risks | Cumulative incidence (Aalen–Johansen), Gray's test, Fine–Gray subdistribution hazards | **Shipped:** CIF and Gray's test. Next: Fine–Gray |
+| Response and trial plots | Waterfall, swimmer and spider plots; ORR and DCR with exact (Clopper–Pearson) CIs | **Shipped** |
+| Trial design | Simon two-stage, single-arm exact binomial, BOIN / 3+3 dose finding, group-sequential boundaries (O'Brien–Fleming, Lan–DeMets), non-inferiority, events-driven sample size | **Shipped:** Simon, BOIN, exact CI, RECIST 1.1 calculator. Next: group sequential, non-inferiority |
 | Biomarkers | ROC/AUC with DeLong CI, sensitivity/specificity, cut-point analysis with optimism correction, time-dependent ROC, nomograms | New |
 | Regression | Logistic, Poisson/negative binomial, multiple imputation (MICE), propensity scores (matching, IPTW) for real-world evidence | OLS already exists |
 | Cancer epidemiology | Crude and age-standardised rates (direct/indirect, SEER and WHO standard populations), SIR/SMR with exact CIs, relative survival (Ederer II / Pohar-Perme), joinpoint-style trend analysis | New |
@@ -70,10 +70,10 @@ Every engine follows the existing rule: reference values from established softwa
 
 | # | Deliverable | Community | Effort | Dependency |
 |---|---|---|---|---|
-| 1 | Oncology survival suite: Cox PH + PH test, competing risks, RMST, waterfall/swimmer plots, ORR exact CI | Researchers | Medium | None (extends the lab) |
+| 1 | ✅ Oncology survival suite: Cox PH + PH test, competing risks, RMST, waterfall/swimmer/spider plots, ORR exact CI | Researchers | Medium | Shipped (Analysis lab → Oncology) |
 | 2 | Cancer data connectors (GDC, cBioPortal, CIViC, Open Targets) + gene → target dossier | Scientists and MDs | Medium | Allowlist update |
 | 3 | Biomarker trial finder + tumour board prep pack | MDs | Low–medium | #2 |
-| 4 | Trial design calculators (Simon two-stage, BOIN, group sequential) | Researchers | Low | None |
+| 4 | ✅ Trial design calculators: Simon two-stage, BOIN, exact CI (group sequential next) | Researchers | Low | Shipped |
 | 5 | Mutation landscape from MAF (OncoPrint, lollipop, TMB, signatures) | Scientists | Medium | None |
 | 6 | TCGA/cBioPortal cohort explorer with KM by alteration | Scientists | Medium | #1, #2 |
 | 7 | In-browser Python/R (Pyodide/WebR) + notebooks | All | High | CSP review |

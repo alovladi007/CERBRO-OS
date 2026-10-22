@@ -234,6 +234,12 @@
             <td class="tol">1e-8</td>
           </tr>
           <tr>
+            <th scope="row">Oncology</th>
+            <td>Cox regression (Efron/Breslow, strata) with proportional-hazards test; cumulative incidence and Gray’s test; RMST; Simon two-stage designs; exact response-rate CIs</td>
+            <td>R <code>survival::coxph</code> / <code>cox.zph</code>, <code>cmprsk::cuminc</code>, <code>survRM2::rmst2</code>, <code>clinfun::ph2simon</code></td>
+            <td class="tol">1e-9 – 1e-12</td>
+          </tr>
+          <tr>
             <th scope="row">Meta-analysis</th>
             <td>Fixed effect; DerSimonian–Laird, Paule–Mandel and REML τ²; Hartung–Knapp; prediction intervals; Egger’s test; leave-one-out; cumulative</td>
             <td>REML and Paule–Mandel τ² matched to direct likelihood optimisation; DerSimonian–Laird and Hartung–Knapp to closed form in NumPy</td>
