@@ -1,6 +1,8 @@
 # Cerebro OS — Build-out and Scaling Plan
 
-_Last updated: 2026-10-10_
+_Last updated: 2026-10-22_
+
+Related plans: **`docs/TOOLS.md`** (tools for physicians, researchers and scientists) and **`docs/ONCOLOGY.md`** (cancer research and data-analysis track).
 
 ## 1. What Cerebro OS is
 
@@ -66,7 +68,7 @@ Each phase builds on the one before. Tick items as they ship.
 - [x] OpenAI/ChatGPT restraint across all layers
 - [x] Ports moved to the 4700 block, with a guard test
 - [x] Scientific editorial redesign (PR #2)
-- [ ] Merge PR #2 into `main`
+- [x] Merge PR #2 into `main`
 - [ ] Set `main` as the GitHub default branch (Settings → General)
 - [ ] Choose a domain; deploy `web/` behind a CDN with HTTPS (or Docker on a small VM)
 - [ ] Replace placeholders: legal entity, contact emails, pricing, `security.txt`; counsel review of the legal pages
@@ -90,6 +92,11 @@ Each phase builds on the one before. Tick items as they ship.
 - [ ] Job queue (Redis plus workers) running containerised Python/R pipelines
 - [ ] BIDS validation; EEG/MEG (MNE) and MRI (fMRIPrep) pipelines on OpenNeuro datasets, pinned to dataset versions
 - [ ] Results written to the same provenance log, with pipeline version and container digest
+
+### Product tracks (run alongside the phases)
+- **Tools by community:** see `docs/TOOLS.md`. First up: the end-to-end systematic review and the journal-club kit.
+- **Cancer research and data analysis:** see `docs/ONCOLOGY.md`. First up: the oncology survival suite (Cox, competing risks, RMST, waterfall/swimmer plots), trial-design calculators, then cancer data connectors (GDC, cBioPortal, CIViC, Open Targets).
+- **Analysis platform:** in-browser Python/R (Pyodide/WebR), notebooks, publication outputs. Details in `docs/ONCOLOGY.md` §3.
 
 ### Phase 4: Depth and integrations
 - [ ] More sources: bioRxiv/medRxiv, Crossref, OpenAlex (with API key)

@@ -1,6 +1,6 @@
 # Cerebro OS — notes for Claude sessions
 
-Read `docs/ROADMAP.md` first: it holds the product summary, current state and the phased build-out/scaling plan.
+Read `docs/ROADMAP.md` first: it holds the product summary, current state and the phased build-out/scaling plan. Product tracks are in `docs/TOOLS.md` (tools by community) and `docs/ONCOLOGY.md` (cancer research and data analysis).
 
 ## Rules
 - **Ports:** use only the 4700 block (4700 server, 4701 dev, 4702 nginx), bound to 127.0.0.1. Never use the ports reserved by the owner's other local platforms; the list is in `docs/PORTS.md`, and `tests/ports.test.mjs` enforces it. Record any new port in `docs/PORTS.md` and in the test.

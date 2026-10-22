@@ -15,7 +15,7 @@ npm test             # 57 tests: numerical engines, app logic, policy, server
 npm run check        # syntax-check every module
 ```
 
-The build-out and scaling plan is in [`docs/ROADMAP.md`](docs/ROADMAP.md). Ports are listed in [`docs/PORTS.md`](docs/PORTS.md); they avoid every port reserved by the other local platforms, and a test enforces this.
+The build-out and scaling plan is in [`docs/ROADMAP.md`](docs/ROADMAP.md), with product tracks in [`docs/TOOLS.md`](docs/TOOLS.md) and [`docs/ONCOLOGY.md`](docs/ONCOLOGY.md) (cancer research and data analysis). Ports are listed in [`docs/PORTS.md`](docs/PORTS.md); they avoid every port reserved by the other local platforms, and a test enforces this.
 
 ```sh
 ```
