@@ -144,3 +144,45 @@ export function prismaDiagram(c) {
     + arrow(180, 356, 180, 450)
     + box(0, 450, 360, 56, ['Studies included in review', `(n = ${c.included})`], 'good-box'))}</div>`;
 }
+
+// ---------- oncology charts ----------
+const RESPONSE_CLASS = { CR: 'f1', PR: 'f2', SD: 'f5', PD: 'f3', NE: 'f4' };
+
+/** Waterfall plot: best % change from baseline per patient, sorted, with RECIST thresholds. */
+export function waterfallChart(items, { title = 'Waterfall plot of best percentage change from baseline' } = {}) {
+  const P = items.filter(d => Number.isFinite(d.value)).sort((a, b) => b.value - a.value);
+  if (!P.length) return '<p class="muted">No tumour-change values.</p>';
+  const hi = Math.max(20, ...P.map(d => d.value)) * 1.08, lo = Math.min(-30, ...P.map(d => d.value)) * 1.08, h = 300;
+  const f = frame({ xLo: 0, xHi: P.length, yLo: lo, yHi: hi, yLabel: 'Best change from baseline (%)', h, xTicks: [] });
+  const bw = Math.max(1, (W - M.l - M.r) / P.length - 1);
+  const bars = P.map((d, i) => { const y0 = f.Y(0), y1 = f.Y(d.value); return `<rect class="${RESPONSE_CLASS[d.group] || 'f1'} bar" x="${(f.X(i) + 0.5).toFixed(1)}" y="${Math.min(y0, y1).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(0.5, Math.abs(y1 - y0)).toFixed(1)}"><title>${esc(d.label)}: ${d.value.toFixed(1)}%${d.group ? ' · ' + esc(d.group) : ''}</title></rect>`; }).join('');
+  const ref = [[20, '+20%'], [-30, '−30%']].map(([v, l]) => `<line class="marker" x1="${M.l}" x2="${W - M.r}" y1="${f.Y(v)}" y2="${f.Y(v)}"/><text class="tick" x="${W - M.r - 4}" y="${f.Y(v) - 4}" text-anchor="end">${l}</text>`).join('');
+  const groups = [...new Set(P.map(d => d.group).filter(Boolean))];
+  return svg(W, h, title, f.grid + `<line class="axis" x1="${M.l}" x2="${W - M.r}" y1="${f.Y(0)}" y2="${f.Y(0)}"/>` + bars + ref + f.axes) + (groups.length ? `<div class="legend">${groups.map(g => `<span><i class="sw ${RESPONSE_CLASS[g] || 'f1'}"></i>${esc(g)}</span>`).join('')}</div>` : '');
+}
+
+/** Swimmer plot: time on treatment per patient, ongoing arrows and response markers. */
+export function swimmerChart(items, { xLabel = 'Months on treatment', title = 'Swimmer plot' } = {}) {
+  const all = items.filter(d => Number.isFinite(d.duration)), P = all.sort((a, b) => b.duration - a.duration).slice(0, 60);
+  if (!P.length) return '<p class="muted">No durations.</p>';
+  const rowH = 14, top = 14, h = top + P.length * rowH + 50, left = 92, max = Math.max(...P.map(d => d.duration)) * 1.06;
+  const X = v => left + v / max * (W - left - M.r);
+  const rows = P.map((d, i) => {
+    const y = top + i * rowH, cls = RESPONSE_CLASS[d.group] || 'f1';
+    return `<text class="tick" x="${left - 8}" y="${y + rowH * 0.72}" text-anchor="end">${esc(String(d.label).slice(0, 12))}</text><rect class="${cls} bar" x="${left}" y="${y + 2}" width="${Math.max(1, X(d.duration) - left).toFixed(1)}" height="${rowH - 4}"><title>${esc(d.label)}: ${d.duration.toFixed(1)}${d.group ? ' · ' + esc(d.group) : ''}${d.ongoing ? ' · ongoing' : ''}</title></rect>`
+      + (d.ongoing ? `<path class="axis" d="M${X(d.duration) + 3} ${y + rowH / 2}h8m-3 -3l3 3l-3 3"/>` : '')
+      + (Number.isFinite(d.responseTime) ? `<circle class="mean" cx="${X(d.responseTime)}" cy="${y + rowH / 2}" r="3"><title>Response at ${d.responseTime}</title></circle>` : '');
+  }).join('');
+  const ticks = niceTicks(0, max, 6).filter(v => v <= max).map(v => `<line class="grid" x1="${X(v)}" x2="${X(v)}" y1="${top}" y2="${h - 38}"/><text class="tick" x="${X(v)}" y="${h - 24}" text-anchor="middle">${tickLabel(v)}</text>`).join('');
+  const groups = [...new Set(P.map(d => d.group).filter(Boolean))];
+  return `<div class="chart-scroll">${svg(W, h, title, ticks + rows + `<text class="label" x="${(left + W - M.r) / 2}" y="${h - 6}" text-anchor="middle">${esc(xLabel)}</text>`)}</div>`
+    + `<div class="legend">${groups.map(g => `<span><i class="sw ${RESPONSE_CLASS[g] || 'f1'}"></i>${esc(g)}</span>`).join('')}<span>→ ongoing</span><span>○ first response</span>${all.length > P.length ? `<span>Showing the ${P.length} longest of ${all.length} patients</span>` : ''}</div>`;
+}
+
+/** Spider plot: % change from baseline over time, one line per patient. */
+export function spiderChart(series, { xLabel = 'Weeks since baseline', title = 'Spider plot' } = {}) {
+  const S = series.filter(s => s.points.length);
+  if (!S.length) return '<p class="muted">No longitudinal measurements.</p>';
+  return lineChart(S.map(s => ({ points: s.points, c: { CR: 0, PR: 1, SD: 4, PD: 2 }[s.group] ?? 0, label: '' })), { xLabel, yLabel: 'Change from baseline (%)', title, markers: [] })
+    + `<div class="legend">${['CR', 'PR', 'SD', 'PD'].filter(g => S.some(s => s.group === g)).map(g => `<span><i class="sw ${RESPONSE_CLASS[g]}"></i>${g}</span>`).join('')}</div>`;
+}

@@ -33,6 +33,7 @@ The build-out and scaling plan is in [`docs/ROADMAP.md`](docs/ROADMAP.md), with 
 | **Statistics** | Welch, Student and paired t-tests; Mann–Whitney U; one-way ANOVA; Kruskal–Wallis; χ²; Pearson and Spearman with CIs; Hedges' g; BH, Holm and Bonferroni corrections. |
 | **Regression** | Multiple OLS with dummy-coded categorical predictors, CIs, R², F-test and a residual plot. |
 | **Survival** | Kaplan–Meier with log-log CIs and medians; k-group log-rank test. |
+| **Oncology** | Cox regression (Efron/Breslow, strata) with the proportional-hazards test; competing risks (cumulative incidence, Gray's test); RMST; waterfall, swimmer and spider plots with ORR/DCR exact CIs; Simon two-stage and BOIN designs; RECIST 1.1 calculator. Validated against R `survival`, `cmprsk`, `survRM2` and `clinfun`. |
 | **Signal** | Bluestein/radix-2 FFT, Welch PSD, zero-phase high-pass, low-pass and notch filters, spectrogram, band power, spectral entropy, aperiodic 1/f exponent and artifact flagging. Handles up to 5 M samples in a Web Worker. |
 | **Meta-analysis** | Fixed and random effects (DL, Paule–Mandel, REML), Hartung–Knapp, prediction intervals, forest and funnel plots, Egger's test, leave-one-out, cumulative analysis, ratio back-transform, and effect-size converters (means → g; 2×2 → log OR, log RR or RD). |
 | **Power** | Exact noncentral-t power (two-sample, paired, one-sample, unequal allocation), proportions, correlation, time-to-event (Schoenfeld), power curves and minimum detectable effect. |
