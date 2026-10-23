@@ -1,20 +1,41 @@
 # Cerebro OS
 
-**The operating system for neuroscience research.** Evidence search, systematic-review screening, dataset discovery, verified statistics, signal analysis, meta-analysis, power planning and study protocols in one local-first workspace.
+**A local-first research workspace for neuroscience and cancer research.** Evidence search, systematic-review screening, dataset discovery, verified statistics, oncology analytics, machine learning, pretrained models, signal analysis, meta-analysis, power planning and study protocols in one place. Data stays in the browser, and every engine is checked against reference software.
 
-Cerebro OS grew out of the *AXON Research v0.1* prototype. It is a ground-up rebuild: every v0.1 capability is kept, and AXON workspaces import automatically. It runs with **zero dependencies and no build step**, either as static files or through the bundled Node server.
+Cerebro OS grew out of the *AXON Research v0.1* prototype. It is a ground-up rebuild: every v0.1 capability is kept, and AXON workspaces import automatically. It runs with **zero npm dependencies and no build step**, either as static files or through the bundled Node server. The only third-party code is the self-hosted ONNX Runtime Web (MIT), vendored with a hash manifest.
 
 > Research use only. Cerebro OS is not a medical device and does not provide diagnosis, prognosis or treatment recommendations.
 
 ## Quick start
 
 ```sh
-npm start            # http://localhost:4700  (Node ≥ 20, no npm install needed)
-npm run dev          # http://localhost:4701 with access logs
-npm test             # 106 tests: numerical engines, ML, models, app logic, policy, server
-npm run fetch:models # optional: host model weights (67 MB) so they load from the site
-npm run test:models  # full model inference check (needs the weights)
-npm run check        # syntax-check every module
+git clone https://github.com/alovladi007/CERBRO-OS.git && cd CERBRO-OS
+npm run fetch:models # optional, once: download and verify model weights (67 MB)
+npm start            # http://127.0.0.1:4700  (Node ≥ 20, no npm install needed)
+```
+
+Open http://127.0.0.1:4700 for the landing page and http://127.0.0.1:4700/app/ for the workspace. To update an existing copy: `git pull`, run `npm run fetch:models` if the registry changed, restart `npm start`, then press ⌘/Ctrl-Shift-R once in the browser (the app is an offline-capable PWA).
+
+To try the tools on fictional data, use the buttons in **Analysis lab**:
+
+- **Synthetic cohort**: general statistics, regression and survival.
+- **Synthetic oncology trial**: the Oncology tab.
+- **Synthetic biomarker cohort**: the Machine learning tab. Its structure is known, so you can see whether a method recovers it.
+
+### Commands
+
+```sh
+npm start                  # server on 127.0.0.1:4700
+npm run dev                # 127.0.0.1:4701 with access logs
+npm test                   # 106 tests: numerical engines, ML, models, app logic, policy, server
+npm run check              # syntax-check every module
+npm run fetch:models       # download registered model weights from their pinned revisions; verify SHA-256
+npm run fetch:models -- --check   # verify only
+npm run test:models        # full model inference check (needs the weights)
+npm run vendor:onnxruntime # re-vendor ONNX Runtime Web (checks npm integrity, writes a hash manifest)
+npm run gen:hosts          # regenerate nginx/Netlify/Vercel/Cloudflare configs from policy.mjs
+npm run check:hosts        # verify generated configs match policy.mjs
+npm run refresh:openai     # update OpenAI crawler IP ranges
 ```
 
 The build-out and scaling plan is in [`docs/ROADMAP.md`](docs/ROADMAP.md), with product tracks in [`docs/TOOLS.md`](docs/TOOLS.md), [`docs/ONCOLOGY.md`](docs/ONCOLOGY.md) (cancer research and data analysis) and [`docs/ML.md`](docs/ML.md) (machine learning). Ports are listed in [`docs/PORTS.md`](docs/PORTS.md); they avoid every port reserved by the other local platforms, and a test enforces this.
@@ -48,7 +69,7 @@ The operator does not permit OpenAI agents to access the platform. The restricti
 
 1. **Server 403s.** The server refuses GPTBot, ChatGPT-User, OAI-SearchBot, ChatGPT-Agent and other OpenAI agents. It matches by **user agent** and by **OpenAI's published IP ranges**, which `npm run refresh:openai` updates. It also refuses requests with a ChatGPT/OpenAI Referer.
 2. **Opt-out signals.** `robots.txt`, `ai.txt`, `noai` meta tags and per-agent `X-Robots-Tag` headers.
-3. **The app never contacts OpenAI.** A strict CSP `connect-src` allowlist plus a runtime fetch, beacon and WebSocket guard (`web/app/js/guard.mjs`) block any call to OpenAI.
+3. **The app never contacts OpenAI.** A strict CSP `connect-src` allowlist plus a runtime fetch, beacon and WebSocket guard (`web/app/js/guard.mjs`) block any call to OpenAI. Scripts load only from the site itself. `script-src` adds `'wasm-unsafe-eval'` so the self-hosted model runtime can compile WebAssembly; `eval` stays blocked.
 4. **No embedding.** `frame-ancestors 'none'` and a frame-buster stop the site being framed, for example inside ChatGPT.
 5. **Terms of service.** The terms prohibit using platform content to train or evaluate AI models.
 
@@ -56,23 +77,48 @@ All of these come from one file: `web/app/js/policy.mjs`. The configs for nginx,
 
 ## Scaling
 
-- **Browser.** The client is stateless and local-first, so heavy computation scales with each user's own device. Analysis runs in a Web Worker.
+- **Browser.** The client is stateless and local-first, so heavy computation scales with each user's own device. Analysis, model training and model inference run in Web Workers.
+- **Models.** Weights are static files (`web/models/<id>/`), served from the site or a CDN. Verified copies are cached in each browser, and the server streams large files instead of buffering them.
 - **Server.** The server holds no shared state. Use `WORKERS=auto` for multi-core cluster mode. Docker, docker-compose and Kubernetes manifests (HPA and PodDisruptionBudget) are in `deploy/`.
 - **Static.** Any static CDN can serve `web/` directly.
 
 ## Validation
 
-The numerical engines are checked against reference values computed independently with SciPy/NumPy; see [`docs/VALIDATION.md`](docs/VALIDATION.md). Unit tests verify the arithmetic. They are not scientific or clinical validation. Benchmark claims against other platforms require matched user studies, which have not been run.
+Each engine is checked against reference values computed independently with established software. The reference scripts are in `tests/fixtures/`, and the results are in [`docs/VALIDATION.md`](docs/VALIDATION.md).
+
+- **Statistics:** SciPy/NumPy.
+- **Oncology:** R `survival`, `cmprsk`, `survRM2` and `clinfun`.
+- **Machine learning:** R `glmnet`, `pROC` and `dcurves`; scikit-learn; scikit-survival; `shap`.
+- **Pretrained models:** Hugging Face `tokenizers` and `transformers`; Python `onnxruntime`.
+
+These tests show the arithmetic matches; they are not scientific or clinical validation. The pretrained model's accuracy has not been measured here, and its model card says so. Benchmark claims against other platforms require matched user studies, which have not been run.
+
+## Status and next steps
+
+- **Shipped:**
+  - Evidence, screening, datasets, statistics, the oncology suite.
+  - ML Stage 1: training, validation, explanations, model cards, TRIPOD+AI.
+  - ML Stage 2: pretrained models in the browser.
+- **Next** (see [`docs/ML.md`](docs/ML.md) and [`docs/ROADMAP.md`](docs/ROADMAP.md)):
+  - More registry models.
+  - Accounts and sync (roadmap Phase 1), which a GPU job service (ML Stage 3) needs.
+  - Federated learning across hospitals (Stage 4).
+  - A sourced research assistant using a non-OpenAI provider (Stage 5).
 
 ## Layout
 
 ```
-web/            static site root (deploy this)
-  index.html    landing page · privacy/terms/security/404
-  app/          workspace (index.html, app.css, js/ modules, js/views/, js/views/lab/)
-  lib/          scientific core: stats, meta, power, signal, oncology, ml, csv, worker
-server/         zero-dependency Node server + OpenAI bot policy + IP-range snapshot
-deploy/         nginx, Cloudflare Worker, Vercel middleware, docker-compose, k8s
-scripts/        config generator, IP-range refresher, syntax checker
-tests/          node:test suites
+web/              static site root (deploy this)
+  index.html      landing page · privacy/terms/security/404
+  app/            workspace (index.html, app.css, js/ modules, js/views/, js/views/lab/)
+  lib/            scientific core: stats, meta, power, signal, oncology, csv, worker
+                  ml*.mjs: training, evaluation, SHAP, UMAP, reports
+                  models/: tokenizer, NER grouping, ONNX pipeline, inference worker
+  models/         model registry (registry.json) and per-model files; weights via fetch:models
+  vendor/         ONNX Runtime Web 1.30.0 (MIT) with SHA-256 manifest
+server/           zero-dependency Node server + OpenAI bot policy + IP-range snapshot
+deploy/           nginx, Cloudflare Worker, Vercel middleware, docker-compose, k8s
+scripts/          config generator, IP-range refresher, syntax checker, model fetch/test, runtime vendoring
+tests/            node:test suites; fixtures/ holds the R and Python reference scripts and values
+docs/             ROADMAP, TOOLS, ONCOLOGY, ML, VALIDATION, DEPLOYMENT, PORTS
 ```
