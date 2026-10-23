@@ -6,3 +6,7 @@ node_modules/
 coverage/
 .vercel/
 .netlify/
+
+# model weights are fetched by `npm run fetch:models` (see web/models/registry.json)
+web/models/*/*.onnx
+web/models/*/*.part

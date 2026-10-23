@@ -34,6 +34,7 @@ const ICONS = {
   menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
   bell: '<path d="M6 16V11a6 6 0 1 1 12 0v5l1.5 2h-15zM10 20a2 2 0 0 0 4 0"/>',
   folder: '<path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2h8.5A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z"/>',
+  cube: '<path d="M12 3 20 7.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5 12 12l8-4.5M12 12v9"/>',
   sparkle: '<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6"/>',
 };
 export const icon = (name, size = 18) => `<svg class="ic" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ''}</svg>`;
@@ -116,6 +117,6 @@ export function compute(fn, ...args) {
     const id = ++seq;
     return new Promise((resolve, reject) => { pending.set(id, { resolve, reject }); worker.postMessage({ id, fn, args }); });
   } catch {
-    return Promise.all([import('../../lib/science.mjs'), import('../../lib/ml.mjs')]).then(([S, ML]) => (ML[fn] || S[fn])(...args));
+    return Promise.all([import('../../lib/science.mjs'), import('../../lib/ml.mjs'), import('../../lib/ml-pipeline.mjs')]).then(([S, ML, MLP]) => (MLP[fn] || ML[fn] || S[fn])(...args));
   }
 }

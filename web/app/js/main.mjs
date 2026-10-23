@@ -8,6 +8,7 @@ export const ROUTES = [
   { id: 'screening', label: 'Screening', icon: 'filter', group: 'Evidence', count: p => Object.keys(p.screening).length ? `${Object.keys(p.screening).length}/${p.papers.length}` : '' , load: () => import('./views/screening.mjs') },
   { id: 'datasets', label: 'Dataset discovery', icon: 'database', group: 'Evidence', load: () => import('./views/datasets.mjs') },
   { id: 'lab', label: 'Analysis lab', icon: 'flask', group: 'Analyze', load: () => import('./views/lab.mjs') },
+  { id: 'models', label: 'Pretrained models', icon: 'cube', group: 'Analyze', load: () => import('./views/models.mjs') },
   { id: 'protocols', label: 'Study protocols', icon: 'doc', group: 'Write', count: p => p.protocols.length || '', load: () => import('./views/protocols.mjs') },
   { id: 'library', label: 'Library & provenance', icon: 'library', group: 'Write', count: p => p.papers.length || '', load: () => import('./views/library.mjs') },
   { id: 'settings', label: 'Settings & policy', icon: 'settings', group: 'System', load: () => import('./views/settings.mjs') },

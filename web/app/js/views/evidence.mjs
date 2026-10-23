@@ -27,7 +27,8 @@ export function wireRecords(root, list) {
     const rec = list[Number(b.dataset.abstract)], slot = b.closest('.record').querySelector('.abstract-slot');
     if (slot.innerHTML) { slot.innerHTML = ''; return; }
     slot.innerHTML = '<div class="loading">Fetching abstract…</div>';
-    try { const a = await fetchAbstract(rec); rec.abstract = a; slot.innerHTML = `<div class="abstract">${esc(a || 'No abstract available from the source.')}</div>`; }
+    try { const a = await fetchAbstract(rec); rec.abstract = a; slot.innerHTML = `<div class="abstract">${esc(a || 'No abstract available from the source.')}</div>${a ? `<button class="btn small ghost" data-tag>${icon('cube', 14)} Tag entities</button>` : ''}`;
+      const tag = slot.querySelector('[data-tag]'); if (tag) tag.onclick = async () => { (await import('../models.mjs')).handoff.text = `${rec.title}\n\n${a}`; location.hash = 'models'; }; }
     catch { slot.innerHTML = '<div class="abstract">The abstract could not be retrieved. Open the record at its source.</div>'; }
   });
   $$('[data-save]', root).forEach(b => b.onclick = () => {

@@ -52,6 +52,31 @@ Reference values come from R (`glmnet` 5.0, `pROC`, `stats::glm`, `survival`) an
 | k-means (fixed start) labels and inertia; silhouette | `KMeans(algorithm = "lloyd")`, `silhouette_score` | exact / 1e-8 / 1e-12 |
 | Harrell's C | `survival::concordance` | 1e-12 |
 
+Stage 1 completion (`tests/ml-extra.test.mjs`):
+
+| Engine | Reference | Tolerance |
+|---|---|---|
+| Decision curves (binary; time to event at t = 5) | R `dcurves::dca` | 1e-12 |
+| Time-dependent AUC (cumulative/dynamic, IPCW) | scikit-survival `cumulative_dynamic_auc` | 1e-12 |
+| TreeSHAP (decision tree; gradient boosting) and expected value | `shap.TreeExplainer(feature_perturbation = "tree_path_dependent")` | 1e-10 – 1e-12 |
+| Trustworthiness | `sklearn.manifold.trustworthiness` | 1e-12 |
+| UMAP a/b curve (spread 1, min_dist 0.1) | scipy `curve_fit`, as umap-learn | 2e-6 |
+
+UMAP layouts, bootstrap optimism and the training report are property-tested: same seed gives the same result, UMAP preserves neighbourhoods better than PCA on the planted subtypes, optimism lowers apparent performance, and SHAP ranks the true prognostic features first.
+
+## Pretrained models (`tests/models.test.mjs`, `npm run test:models`)
+
+| Check | Reference | Result |
+|---|---|---|
+| Vendored ONNX Runtime Web 1.30.0 | npm SHA-512 integrity; SHA-256 manifest | exact |
+| Runtime arithmetic (tiny logistic model) | Python onnxruntime 1.29 | 1e-7 |
+| WordPiece tokenizer: ids, tokens, offsets (incl. accents, Greek, µ, ß, curly quotes, tabs) | Hugging Face `tokenizers` | exact |
+| Entity grouping ("simple" and "first") from reference logits | transformers token-classification pipeline | exact offsets; scores 1e-5 |
+| Integrity checks | altered or truncated files | refused |
+| Full int8 inference on sample texts (`npm run test:models`, needs the weights) | full-precision (fp32) model labels | agreement ≥ Python int8 − 1 pt, and ≥ 90% |
+
+Dynamic int8 models are not bit-reproducible across runtimes: integer kernels differ, and even Python onnxruntime's own optimisation levels disagree by several logits. So full inference is judged against the full-precision model. On the sample texts this runtime's token labels agree with fp32 on 93–95% of tokens, and Python's int8 labels on 92–95%. These checks show the runtime is faithful; they do not measure the model's accuracy.
+
 Random forests and random survival forests draw random numbers differently from other libraries, so they are tested by property: the same seed gives the same model, they recover the known signal in the synthetic biomarker cohort, and out-of-bag performance is below training performance. Cross-validation, leave-one-site-out validation, model export and re-application, subtype recovery, model cards and the TRIPOD+AI draft are also tested.
 
 The 32 original AXON v0.1 checks are kept. One expected value changed: the random-effects lower bound now uses the exact normal quantile 1.959964 instead of the rounded 1.96.

@@ -37,7 +37,7 @@ Research use only. Not a medical device. No patient data.
 
 - **Local-first.** Projects, decisions and run history are stored in the user's browser. Participant-level data loaded into the lab is never uploaded.
 - **The server holds no data.** It serves files and enforces policy, so it is cheap and easy to scale.
-- **Verified maths.** 89 automated tests, with reference values computed independently in SciPy/NumPy, R and scikit-learn (`docs/VALIDATION.md`).
+- **Verified maths.** 106 automated tests, with reference values computed independently in SciPy/NumPy, R and scikit-learn (`docs/VALIDATION.md`).
 - **OpenAI restraint, five layers.** Server 403 by user agent and published IP ranges; robots.txt, ai.txt and noai tags; CSP egress allowlist; runtime fetch guard; no framing. Details are in `docs/DEPLOYMENT.md`.
 
 ### Ports (see `docs/PORTS.md`; enforced by `tests/ports.test.mjs`)
@@ -96,7 +96,7 @@ Each phase builds on the one before. Tick items as they ship.
 ### Product tracks (run alongside the phases)
 - **Tools by community:** see `docs/TOOLS.md`. First up: the end-to-end systematic review and the journal-club kit.
 - **Cancer research and data analysis:** see `docs/ONCOLOGY.md`. First up: the oncology survival suite (Cox, competing risks, RMST, waterfall/swimmer plots), trial-design calculators, then cancer data connectors (GDC, cBioPortal, CIViC, Open Targets).
-- **Machine learning:** see `docs/ML.md`. Stage 1 (in-browser ML tools: penalised regression, forests, boosting, validation, model cards, TRIPOD+AI) has started; then pretrained models, GPU jobs, federated learning and a sourced research assistant.
+- **Machine learning:** see `docs/ML.md`. Stage 1 (in-browser ML tools, validation, explanations, model cards, TRIPOD+AI) and Stage 2 (pretrained models on self-hosted ONNX Runtime Web, starting with biomedical entity recognition) have shipped. Next: GPU jobs (Stage 3), federated learning (Stage 4) and a sourced research assistant (Stage 5).
 - **Analysis platform:** in-browser Python/R (Pyodide/WebR), notebooks, publication outputs. Details in `docs/ONCOLOGY.md` §3.
 
 ### Phase 4: Depth and integrations

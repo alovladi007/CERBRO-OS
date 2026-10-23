@@ -1,0 +1,68 @@
+{
+  "schema": "cerebro-model-registry-1",
+  "updated": "2026-10-23",
+  "policy": "A model is listed only with an open licence, a pinned source revision and a SHA-256 for every file. Files are loaded from this site (/models/…) or chosen from the user's device, and are refused if a hash does not match. Research use only.",
+  "deployment": {
+    "commercial": false
+  },
+  "models": [
+    {
+      "id": "biomedical-ner-all",
+      "version": "onnx-community@6ceb893",
+      "task": "token-classification",
+      "title": "Biomedical entity recognition",
+      "summary": "Tags 42 entity types in English clinical text: diseases and disorders, signs and symptoms, medications, dosages, diagnostic and therapeutic procedures, lab values, anatomy, durations and more.",
+      "architecture": "DistilBERT (uncased, 66 M parameters), dynamic int8 quantisation; WordPiece tokenizer, up to 512 tokens per window",
+      "runtime": "onnxruntime-web 1.30.0 (WebAssembly, single thread)",
+      "source": {
+        "repo": "onnx-community/biomedical-ner-all-ONNX",
+        "revision": "6ceb893e772562380b0072dec34ef748e8faadd0",
+        "baseModel": "d4data/biomedical-ner-all",
+        "url": "https://huggingface.co/onnx-community/biomedical-ner-all-ONNX"
+      },
+      "license": "Apache-2.0",
+      "commercialUse": true,
+      "citation": "Raza S, Reji DJ, Shajan F, Bashir SR. Large-scale application of named entity recognition to biomedicine and epidemiology. PLOS Digital Health 2022;1(12):e0000152.",
+      "trainingData": "MACCROBAT2018: 200 annotated clinical case reports from PubMed Central (Caufield et al., figshare 2018).",
+      "evaluatedOn": "No held-out accuracy evaluation is published with the model card, and Cerebro OS has not measured accuracy. What is checked (npm run test:models): on sample texts this browser runtime's token labels agree with the full-precision model as often as Python onnxruntime's int8 labels do (91–95% of tokens).",
+      "intendedUse": "Research: highlighting candidate entities in case reports and abstracts for reading, screening and data extraction, with a human checking every result.",
+      "limitations": [
+        "Trained on 200 case reports: expect missed and wrong entities, especially outside case-report style text.",
+        "English only; lower-cased input, so case distinctions (e.g. gene vs. protein names) are lost.",
+        "The weights are int8-quantised (67 MB instead of 266 MB): on sample texts 5–9% of word-piece labels differ from the full-precision model, so borderline entities can change between runtimes.",
+        "Some label names in the upstream configuration are malformed (e.g. 'Non[biological](Detailed_description'); they are shown as published.",
+        "Not a medical device and not for clinical decisions."
+      ],
+      "files": [
+        {
+          "name": "model.onnx",
+          "sourcePath": "onnx/model_quantized.onnx",
+          "bytes": 67002983,
+          "sha256": "7f7fbaf4db27c9283fc32a26ad79028ee4f42817877da2a3193e62c3fcda3f00",
+          "bundled": false
+        },
+        {
+          "name": "vocab.txt",
+          "sourcePath": "vocab.txt",
+          "bytes": 231508,
+          "sha256": "07eced375cec144d27c900241f3e339478dec958f92fddbc551f295c992038a3",
+          "bundled": true
+        },
+        {
+          "name": "config.json",
+          "sourcePath": "config.json",
+          "bytes": 5037,
+          "sha256": "191ba33957599d992b60aa06844d5a4045b29fbb340b96e5b258019b57caf200",
+          "bundled": true
+        }
+      ],
+      "tokenizer": {
+        "type": "wordpiece",
+        "vocab": "vocab.txt",
+        "lowercase": true,
+        "maxLength": 512
+      },
+      "example": "A 48 year-old female presented with vaginal bleeding and abnormal Pap smears. Upon diagnosis of invasive non-keratinizing SCC of the cervix, she underwent a radical hysterectomy with salpingo-oophorectomy which demonstrated positive spread to the pelvic lymph nodes and the parametrium."
+    }
+  ]
+}

@@ -69,6 +69,17 @@ The image is `node:22-alpine` running as the unprivileged `node` user, and conta
 `package.json`, `server/` and `web/`. It sets `WORKERS=auto` and has a `HEALTHCHECK` that calls
 `/healthz` with Node's built-in `fetch` (Alpine doesn't include curl).
 
+## Pretrained model weights
+
+Model weights listed in `web/models/registry.json` are not in git (the first model is 67 MB). Run
+`npm run fetch:models` before `npm start`, `docker build` or a static deploy, so the weights are
+served from `/models/<id>/`. The script downloads each file from its pinned revision and refuses
+it if the SHA-256 differs. Without the weights, the app still works: users choose the file on their
+own device, and the browser verifies its hash before using it. Files over 4 MB (the WebAssembly
+runtime and the weights) are streamed from disk rather than cached in memory or recompressed.
+The CSP allows `'wasm-unsafe-eval'` so the self-hosted runtime can compile WebAssembly; it does
+not allow `eval`.
+
 ## Kubernetes and scaling
 
 `deploy/k8s.yaml` defines:

@@ -1,8 +1,8 @@
 # Reference values for tests/ml.test.mjs (R side). Run from the repo root:
 #   Rscript tests/fixtures/ml-reference.R && python3 tests/fixtures/ml-reference.py
 # Writes tests/fixtures/ml-reference-r.json; the Python script merges it into ml-reference.json.
-# Packages: glmnet (>= 5.0), pROC, survival, jsonlite.
-suppressPackageStartupMessages({ library(glmnet); library(pROC); library(survival); library(jsonlite) })
+# Packages: glmnet (>= 5.0), pROC, survival, dcurves, jsonlite.
+suppressPackageStartupMessages({ library(glmnet); library(pROC); library(survival); library(dcurves); library(jsonlite) })
 set.seed(20261023)
 n <- 200; p <- 8
 X <- matrix(round(rnorm(n * p), 4), n, p)
@@ -35,4 +35,10 @@ out$calib <- list(prob = pr,
 # Harrell's C for a Cox fit (survival::concordance)
 fit <- coxph(Surv(time, status) ~ X[, 1] + X[, 4])
 out$conc <- list(risk = unname(predict(fit, type = "lp")), c = unname(concordance(fit)$concordance))
+# decision curves (dcurves): binary, and time-to-event at t = 5
+nb <- function(d) { tb <- as.data.frame(d$dca); lapply(split(tb, tb$label), function(g) g[order(g$threshold), "net_benefit"]) }
+db <- dca(y ~ p, data = data.frame(y = y, p = pr), thresholds = seq(0.05, 0.95, 0.05))
+ps <- 1 - exp(-0.08 * 5 * exp(0.7 * X[, 1] - 0.5 * X[, 4] + 0.1 * X[, 3]))
+ds <- dca(Surv(time, status) ~ p, data = data.frame(time = time, status = status, p = ps), time = 5, thresholds = seq(0.05, 0.95, 0.05))
+out$dca <- list(thresholds = seq(0.05, 0.95, 0.05), binary = nb(db), surv_risk = ps, surv = nb(ds))
 writeLines(toJSON(out, digits = NA, matrix = "rowmajor", auto_unbox = TRUE), "tests/fixtures/ml-reference-r.json")

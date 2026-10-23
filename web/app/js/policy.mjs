@@ -40,7 +40,9 @@ export function egressDecision(url, origin) {
 export function contentSecurityPolicy() {
   return [
     "default-src 'self'",
-    "script-src 'self'",
+    // 'wasm-unsafe-eval' lets the self-hosted ONNX Runtime compile WebAssembly (docs/ML.md, Stage 2).
+    // It does not permit eval() or new Function(); scripts still load only from this origin.
+    "script-src 'self' 'wasm-unsafe-eval'",
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob:",
     "font-src 'self'",

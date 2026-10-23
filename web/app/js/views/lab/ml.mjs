@@ -86,11 +86,11 @@ function trainView(box) {
         subgroup: s.sub === '' ? null : d.headers[Number(s.sub)], site: s.site === '' ? null : d.headers[Number(s.site)], horizon: s.horizon === '' ? undefined : Number(s.horizon) };
       btn.disabled = true; btn.textContent = 'Training… (runs in the background)';
       out.innerHTML = `<p class="muted">Training ${esc(MODELS[s.model].label)} with ${s.folds}-fold cross-validation${s.repeats > 1 ? ` × ${s.repeats}` : ''} on ${d.rows.length.toLocaleString()} rows…</p>`;
-      const r = await compute('trainEvaluate', spec);
+      const r = await compute('trainReport', spec);
       const { finalModel, ...summary } = r;
       const run = await logRun('ml-train', { dataset: d.name, dataSha256, outcome, features, model: s.model, params: r.params, folds: r.folds, repeats: r.repeats, seed: r.seed, subgroup: spec.subgroup, site: spec.site, horizon: r.horizon },
-        { ...summary, roc: undefined, calibration: r.calibration, finalModel: { type: finalModel.type, trainedOn: finalModel.trainedOn } }, { modelCard: modelCard(r, { dataName: d.name, dataSha256 }) });
-      ui.last = { r, run, dataName: d.name, dataSha256 }; ui.lastRef = d;
+        { ...summary, roc: undefined, shap: r.shap?.meanAbs, decisionCurve: undefined, calibration: r.calibration, finalModel: { type: finalModel.type, trainedOn: finalModel.trainedOn } }, { modelCard: modelCard(r, { dataName: d.name, dataSha256 }) });
+      ui.last = { r, run, dataName: d.name, dataSha256, spec }; ui.lastRef = d;
       renderTrainResult(out, ui.last);
     } catch (x) { err.textContent = x.message; }
     finally { btn.disabled = false; btn.innerHTML = `${icon('sparkle', 16)} Train and cross-validate`; }
@@ -105,7 +105,38 @@ function calibrationPlot(bins, { title, xLabel = 'Predicted risk', yLabel = 'Obs
   ], { xLabel, yLabel, title, yZero: true });
 }
 
-function renderTrainResult(out, { r, run, dataName, dataSha256 }) {
+function utilitySection(r) {
+  const surv = r.task === 'survival', dc = r.decisionCurve || [];
+  const top = Math.max(0.02, ...dc.map(q => q.all), ...dc.map(q => q.model)), shown = dc.filter(q => q.threshold <= 0.8);
+  const chart = dc.length ? lineChart([
+    { label: 'Model', points: shown.map(q => [q.threshold, Math.max(q.model, -top * 0.15)]), c: 0 },
+    { label: 'Treat all', points: shown.map(q => [q.threshold, Math.max(q.all, -top * 0.15)]), c: 2, dashed: true },
+    { label: 'Treat none', points: [[shown[0].threshold, 0], [shown.at(-1).threshold, 0]], c: 4, dashed: true },
+  ], { xLabel: 'Threshold probability', yLabel: 'Net benefit', title: 'Decision curve' }) : '';
+  const best = dc.filter(q => q.threshold >= 0.05 && q.threshold <= 0.5 && q.model > Math.max(q.all, 0));
+  const rangeTxt = best.length ? `The model adds net benefit over treating everyone or no one for thresholds from ${pct(best[0].threshold)} to ${pct(best.at(-1).threshold)} (within 5–50%).` : 'Within thresholds of 5–50%, the model does not add net benefit over treating everyone or no one.';
+  return `<h3>Clinical utility <span class="muted small">(decision curve on out-of-fold ${surv ? `risk by ${fmt(r.horizon, 1)}` : 'predictions'})</span></h3>${chart}<p class="muted small">${rangeTxt} Net benefit weighs true positives against false positives at the odds of the threshold (Vickers & Elkin 2006); validated against R dcurves.</p>`
+    + (r.timeAUC ? '<h3>Time-dependent AUC <span class="muted small">(cumulative/dynamic, IPCW; out-of-fold risk)</span></h3>' + table(['Time', 'AUC(t)', 'Cases by t', 'Event-free after t'], r.timeAUC.map(t => [fmt(t.t, 1), fmt(t.auc), t.cases, t.controls]), { numeric: [0, 1, 2, 3] }) : '');
+}
+
+function shapSection(r) {
+  const sh = r.shap;
+  if (!sh) return '';
+  if (sh.error) return notice(`SHAP values are not available: ${esc(sh.error)}`);
+  const top = sh.meanAbs.slice(0, 12), mx = top[0]?.value || 1;
+  return `<h3>SHAP explanations <span class="muted small">(final model, ${sh.rows < sh.of ? `${sh.rows} of ${sh.of} rows` : `${sh.rows} rows`}, ${esc(sh.scale)} scale)</span></h3>`
+    + table(['Predictor', 'Mean |SHAP|', ''], top.map(t => [esc(t.feature), fmt(t.value), `<span class="ibar" style="width:${(t.value / mx * 100).toFixed(0)}%"></span>`]), { numeric: [1] })
+    + `<div class="inline small"><label class="field" style="margin:0">Explain row <select id="shap-row">${sh.x.map((_, i) => `<option value="${i}">${i + 1}</option>`).join('')}</select></label></div><div id="shap-one"></div>`
+    + '<p class="muted small">Exact TreeSHAP (path-dependent; validated against the shap library) for tree models, exact linear SHAP for penalised regression. SHAP describes how the model uses each predictor, not causal effects.</p>';
+}
+function renderShapRow(sh, i) {
+  const vals = sh.features.map((f, j) => ({ f, v: sh.values[i][j], x: sh.x[i][j] })).sort((a, b) => Math.abs(b.v) - Math.abs(a.v)).slice(0, 10), mx = Math.max(1e-12, ...vals.map(v => Math.abs(v.v)));
+  const total = sh.base + sh.values[i].reduce((a, v) => a + v, 0);
+  return table(['Predictor', 'Value', 'Contribution', ''], vals.map(v => [esc(v.f), esc(v.x ?? ''), `${v.v >= 0 ? '+' : ''}${fmt(v.v)}`, `<span class="ibar${v.v < 0 ? ' neg' : ''}" style="width:${(Math.abs(v.v) / mx * 100).toFixed(0)}%"></span>`]), { numeric: [2] })
+    + `<p class="muted small">Baseline ${fmt(sh.base)} + contributions = ${fmt(total)} (${esc(sh.scale)}).</p>`;
+}
+
+function renderTrainResult(out, { r, run, dataName, dataSha256, spec }) {
   const surv = r.task === 'survival', p = r.pooled, imp = (r.importance || []).filter(i => Math.abs(i.drop) > 1e-9).slice(0, 15), impZero = (r.importance || []).length - imp.length;
   const head = surv
     ? `<div class="metrics">${metric("Harrell's C (CV)", fmt(r.summary.mean), `fold SD ${fmt(r.summary.sd)} · range ${fmt(r.summary.min)}–${fmt(r.summary.max)}`)}${metric('Pooled out-of-fold C', fmt(p.cIndex), p.cCI ? `bootstrap 95% CI ${ci(p.cCI.lower, p.cCI.upper)}` : '')}${metric(`Brier at ${fmt(r.horizon, 1)}`, fmt(p.brier), `IPA ${pct(p.ipa)} vs Kaplan–Meier`)}${metric('Predicted vs observed risk', `${pct(p.predictedRisk)} / ${pct(p.observedRisk)}`, `at ${fmt(r.horizon, 1)} · ${r.n} patients, ${r.events} events`)}</div>`
@@ -122,16 +153,28 @@ function renderTrainResult(out, { r, run, dataName, dataSha256 }) {
     + (warn.length ? notice(warn.join(' '), 'warn') : '') + charts
     + (imp.length ? `<h3>Permutation importance <span class="muted small">(drop in ${surv ? 'C' : 'AUC'} on held-out folds)</span></h3>` + table(['Predictor', 'Drop', 'SD across folds', ''], imp.map(i => [esc(i.feature), fmt(i.drop), fmt(i.sd), `<span class="ibar" style="width:${Math.max(0, Math.min(100, i.drop / Math.max(1e-9, imp[0].drop) * 100)).toFixed(0)}%"></span>`]), { numeric: [1, 2] }) + (impZero ? `<p class="muted small">${impZero} other predictors changed the held-out ${surv ? 'C' : 'AUC'} by less than 0.001 or not at all.</p>` : '') : '')
     + (r.coefficients ? `<h3>Selected coefficients <span class="muted small">(final model, λ = ${fmt(r.finalModel.model.lambda)}, ${r.coefficients.length} of ${r.finalModel.preprocessor.columns.length} non-zero)</span></h3>` + table(['Term', 'Coefficient', surv ? 'Hazard ratio' : 'Odds ratio'], r.coefficients.map(c => [esc(c.name), fmt(c.coef), fmt(c.ratio)]), { numeric: [1, 2] }) + '<p class="muted small">Penalised coefficients are shrunk towards zero and have no valid confidence intervals; use them to describe the model, not to test hypotheses.</p>' + pathChart : '')
+    + utilitySection(r) + shapSection(r)
     + (r.subgroups ? `<h3>Subgroups (out-of-fold)</h3>` + table(['Group', 'n', surv ? 'Events' : 'Positive', surv ? 'C' : 'AUC', 'Observed', 'Predicted', ''], r.subgroups.map(g => [esc(g.level), g.n, surv ? g.events : g.positives, fmt(surv ? g.cIndex : g.auc), pct(g.observed), pct(g.predicted), g.small ? '<span class="muted small">small</span>' : '']), { numeric: [1, 2, 3, 4, 5] }) : '')
     + (r.sites?.length ? `<h3>Leave-one-site-out validation</h3><p class="muted small">Each site is predicted by a model trained on the other sites: a rehearsal of external validation.</p>` + table(['Held-out site', 'n', surv ? 'C' : 'AUC', surv ? 'Brier' : 'Calibration slope', 'Observed', 'Predicted'], r.sites.map(x => x.error ? [esc(x.site), x.n, esc(x.error), '', '', ''] : [esc(x.site), x.n, fmt(surv ? x.cIndex : x.auc), fmt(surv ? x.brier : x.slope, surv ? 3 : 2), pct(x.observed), pct(x.predicted)]), { numeric: [1, 2, 3, 4, 5] }) : '')
     + `<details><summary class="small">Per-fold results</summary>${table(['Repeat', 'Fold', 'n', surv ? 'C' : 'AUC', 'Brier', surv ? 'IPA' : 'Slope'], r.perFold.map(f => [f.repeat + 1, f.fold + 1, f.n, fmt(surv ? f.cIndex : f.auc), fmt(f.brier), surv ? pct(f.ipa) : fmt(f.slope, 2)]), { numeric: [2, 3, 4, 5] })}</details>`
     + `<p class="method-note">${surv ? "Harrell's C from survival::concordance conventions; IPCW Brier score (Graf et al. 1999) with the index of prediction accuracy against the Kaplan–Meier null model; calibration compares mean predicted risk with Kaplan–Meier risk in fifths of predicted risk." : 'AUC with DeLong CI (validated against R pROC); calibration intercept (logit offset) and slope (validated against R glm); calibration plot in tenths of predicted risk with Wald 95% intervals.'} Elastic net validated against R glmnet; CART and gradient boosting against scikit-learn. Engine ${esc(r.version)}. Research use only.</p>`
-    + `<div class="actions"><button class="btn small" id="dl-model">${icon('download', 14)} Model file</button><button class="btn small" id="dl-card">${icon('download', 14)} Model card</button><button class="btn small" id="dl-tripod">${icon('download', 14)} TRIPOD+AI draft</button><button class="btn small" id="dl-run">${icon('download', 14)} Run record</button><button class="btn small" id="to-ext">Validate on another dataset →</button><span class="muted small mono">sha256 ${run.inputSha256.slice(0, 16)}…</span></div>`;
+    + `<div class="actions"><button class="btn small" id="dl-model">${icon('download', 14)} Model file</button><button class="btn small" id="dl-card">${icon('download', 14)} Model card</button><button class="btn small" id="dl-tripod">${icon('download', 14)} TRIPOD+AI draft</button><button class="btn small" id="dl-run">${icon('download', 14)} Run record</button><button class="btn small" id="optim">Optimism-corrected (bootstrap)</button><button class="btn small" id="to-ext">Validate on another dataset →</button><span class="muted small mono">sha256 ${run.inputSha256.slice(0, 16)}…</span></div>`;
   $('#dl-model').onclick = () => download(`cerebro-model-${r.model}.json`, JSON.stringify(r.finalModel));
   $('#dl-card').onclick = () => download(`cerebro-model-card-${r.model}.json`, JSON.stringify(modelCard(r, { dataName, dataSha256, runId: run.id }), null, 2));
   $('#dl-tripod').onclick = () => download(`cerebro-tripod-ai-${r.model}.md`, tripodDraft(r, { dataName, dataSha256, runId: run.id }), 'text/markdown');
   $('#dl-run').onclick = () => download('cerebro-ml-run.json', JSON.stringify(run, null, 2));
   $('#to-ext').onclick = () => { ui.section = 'external'; render($('#lab-body')); };
+  const sr = $('#shap-row'); if (sr) { const draw = () => { $('#shap-one').innerHTML = renderShapRow(r.shap, Number(sr.value)); }; sr.onchange = draw; draw(); }
+  $('#optim').onclick = async () => {
+    const b = $('#optim'); b.disabled = true; b.textContent = 'Bootstrapping… (50 refits)';
+    try {
+      const o = await compute('optimismBootstrap', spec, { B: 50 });
+      await logRun('ml-optimism-bootstrap', { model: spec.model, params: o.params, B: o.B, seed: o.seed, dataSha256 }, o);
+      const names = { auc: 'AUC', c: "Harrell's C", brier: 'Brier score', slope: 'Calibration slope' };
+      b.insertAdjacentHTML('afterend', `<div style="flex-basis:100%"><h3>Optimism-corrected performance <span class="muted small">(Harrell bootstrap, B = ${o.B}, ${(o.ms / 1000).toFixed(1)} s)</span></h3>${table(['Measure', 'Apparent', 'Optimism', 'Corrected', 'Replicates'], o.metrics.map(m => [names[m.metric] || m.metric, fmt(m.apparent), fmt(m.optimism), `<strong>${fmt(m.corrected)}</strong>`, m.replicates]), { numeric: [1, 2, 3, 4] })}<p class="muted small">Each replicate refits the whole procedure (preprocessing and tuning) on a bootstrap sample and compares its performance there with its performance on the original data.</p></div>`);
+      b.remove();
+    } catch (x) { b.disabled = false; b.textContent = 'Optimism-corrected (bootstrap)'; toast(x.message, 'error'); }
+  };
 }
 
 // ---------- subtype discovery ----------
@@ -140,25 +183,27 @@ function clusterView(box) {
   s.cx ??= (num.some(c => /gene|expr|_ex$|rna|protein/i.test(c.name)) ? num.filter(c => /gene|expr|_ex$|rna|protein/i.test(c.name)) : num.filter(c => !LEAKY.test(c.name))).map(c => c.index);
   box.innerHTML = `<div class="split"><section class="card"><h2>Subtype discovery</h2><p class="muted small">Standardise, project with PCA, then k-means (k-means++, 10 restarts) for each k. The silhouette width picks k. Clusters are hypotheses: check them against outcomes and in independent data.</p>
     <div class="field">Features<div class="chips">${num.map(c => `<label class="chip"><input type="checkbox" data-cx="${c.index}" ${s.cx.includes(c.index) ? 'checked' : ''}> ${esc(c.name)}</label>`).join('')}</div></div>
-    <div class="form-grid"><label class="field">Smallest k<input id="kmin" type="number" min="2" max="10" value="${s.kmin ?? 2}"></label><label class="field">Largest k<input id="kmax" type="number" min="2" max="12" value="${s.kmax ?? 6}"></label><label class="field">Random seed<input id="cseed" type="number" value="${s.cseed ?? 2026}"></label></div>
+    <div class="form-grid"><label class="field">Smallest k<input id="kmin" type="number" min="2" max="10" value="${s.kmin ?? 2}"></label><label class="field">Largest k<input id="kmax" type="number" min="2" max="12" value="${s.kmax ?? 6}"></label><label class="field">Random seed<input id="cseed" type="number" value="${s.cseed ?? 2026}"></label><label class="field">Map<select id="emb"><option value="umap" ${s.emb !== 'pca' ? 'selected' : ''}>UMAP (non-linear)</option><option value="pca" ${s.emb === 'pca' ? 'selected' : ''}>PCA only (faster)</option></select></label></div>
     <button class="btn primary" id="go" style="width:100%">Find clusters</button><div class="error" id="err" role="alert"></div></section>
     <section class="card" id="out"><p class="muted">A principal-component map coloured by cluster, the silhouette for each k and the cluster profiles appear here. You can add the cluster labels to the dataset, then compare survival by cluster in the Survival or Oncology tab.</p></section></div>`;
   $('#go').onclick = async () => {
     const err = $('#err'), out = $('#out'); err.textContent = '';
     try {
       const d = lab.data;
-      s.cx = $$('[data-cx]', box).filter(c => c.checked).map(c => Number(c.dataset.cx)); s.kmin = Number($('#kmin').value); s.kmax = Number($('#kmax').value); s.cseed = Number($('#cseed').value);
+      s.cx = $$('[data-cx]', box).filter(c => c.checked).map(c => Number(c.dataset.cx)); s.kmin = Number($('#kmin').value); s.kmax = Number($('#kmax').value); s.cseed = Number($('#cseed').value); s.emb = $('#emb').value;
       if (s.kmax < s.kmin) throw Error('Largest k must be at least the smallest k.');
       const features = s.cx.map(i => ({ name: d.headers[i], kind: 'numeric' }));
       out.innerHTML = '<p class="muted">Clustering…</p>';
-      const r = await compute('clusterAnalysis', { headers: d.headers, rows: d.rows, features, kMin: s.kmin, kMax: s.kmax, seed: s.cseed });
-      const run = await logRun('ml-clusters', { dataset: d.name, features: features.map(f => f.name), kMin: s.kmin, kMax: s.kmax, seed: s.cseed }, { runs: r.runs, best: { k: r.best.k, silhouette: r.best.silhouette, sizes: r.best.profile.map(p => p.n) }, explained: r.pca.explained });
+      const r = await compute('clusterReport', { headers: d.headers, rows: d.rows, features, kMin: s.kmin, kMax: s.kmax, seed: s.cseed, embedding: s.emb });
+      const run = await logRun('ml-clusters', { dataset: d.name, features: features.map(f => f.name), kMin: s.kmin, kMax: s.kmax, seed: s.cseed }, { runs: r.runs, best: { k: r.best.k, silhouette: r.best.silhouette, sizes: r.best.profile.map(p => p.n) }, explained: r.pca.explained, umap: r.umap ? { nNeighbors: r.umap.nNeighbors, minDist: r.umap.minDist, trust: r.umap.trust } : null });
       const top = r.best.profile.map(p => { const o = p.center.map((v, j) => [r.columns[j], v]).sort((a, b) => Math.abs(b[1]) - Math.abs(a[1])).slice(0, 4); return [`Cluster ${p.cluster}`, p.n, o.map(([n, v]) => `${esc(n)} ${v > 0 ? '↑' : '↓'}${fmt(Math.abs(v), 1)}`).join(', ')]; });
       out.innerHTML = `<div class="eyebrow">k-means on ${r.columns.length} standardised features · ${r.n} rows</div><div class="metrics">${metric('Clusters (best k)', r.best.k)}${metric('Silhouette', fmt(r.best.silhouette), r.best.silhouette > 0.5 ? 'strong structure' : r.best.silhouette > 0.25 ? 'moderate structure' : 'weak structure')}${metric('PC1 + PC2 variance', pct(r.pca.explained[0] + (r.pca.explained[1] || 0)))}</div>`
+        + (r.umap ? groupScatter(r.umap.embedding.map((e, i) => [e[0], e[1], r.best.labels[i]]), { xLabel: 'UMAP 1', yLabel: 'UMAP 2', title: 'UMAP map coloured by cluster', labels: r.best.profile.map(p => `Cluster ${p.cluster} (n = ${p.n})`) })
+          + `<p class="muted small">UMAP with ${r.umap.nNeighbors} neighbours, min_dist ${r.umap.minDist}, ${r.umap.epochs} epochs, seed ${s.cseed}.${Number.isFinite(r.umap.trust) ? ` Trustworthiness (k = 10): UMAP ${fmt(r.umap.trust)}, PCA ${fmt(r.pca.trust)}.` : ''} Distances between far-apart clusters on a UMAP map are not meaningful.</p>` : '')
         + groupScatter(r.pca.scores.map((sc, i) => [sc[0], sc[1] ?? 0, r.best.labels[i]]), { xLabel: `PC1 (${pct(r.pca.explained[0])})`, yLabel: `PC2 (${pct(r.pca.explained[1])})`, title: 'Principal components coloured by cluster', labels: r.best.profile.map(p => `Cluster ${p.cluster} (n = ${p.n})`) })
         + barChart(r.runs.map(x => ({ label: `k = ${x.k}`, value: Math.max(0, x.silhouette), text: fmt(x.silhouette, 2) })), { yLabel: 'Mean silhouette', title: 'Silhouette by number of clusters' })
         + '<h3>Cluster profiles <span class="muted small">(largest standardised mean differences)</span></h3>' + table(['Cluster', 'n', 'Distinguishing features (z)'], top, { numeric: [1] })
-        + `<p class="method-note">Features are imputed (median), centred and scaled; PCA by symmetric eigendecomposition (validated against scikit-learn); k-means (Lloyd) and silhouette validated against scikit-learn. Engine ${esc(r.version)}.</p>`
+        + `<p class="method-note">Features are imputed (median), centred and scaled; PCA by symmetric eigendecomposition (validated against scikit-learn); UMAP as umap-learn (a/b curve validated; seeded); k-means (Lloyd) and silhouette validated against scikit-learn. Engine ${esc(r.version)}.</p>`
         + `<div class="actions"><button class="btn small" id="add-col">Add “cluster” column to the dataset</button><span class="muted small mono">sha256 ${run.inputSha256.slice(0, 16)}…</span></div>`;
       $('#add-col').onclick = async () => {
         const name = d.headers.includes('cluster') ? `cluster_k${r.best.k}` : 'cluster';

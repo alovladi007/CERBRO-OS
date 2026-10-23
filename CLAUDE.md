@@ -18,10 +18,14 @@ npm run check        # syntax-check every module
 npm run check:hosts  # verify generated host configs match policy.mjs
 npm run gen:hosts    # regenerate host configs after editing policy.mjs
 npm run refresh:openai  # update OpenAI crawler IP ranges
+npm run fetch:models    # download + verify model weights (not committed)
+npm run test:models     # full model inference check (needs the weights)
 ```
 
 ## Layout
 - `web/`: static site root. `index.html` is the landing page; `app/` is the workspace; `lib/` is the scientific engines.
 - `server/`: zero-dependency Node server and OpenAI bot policy.
 - `deploy/`: nginx, Cloudflare Worker, Vercel middleware, docker-compose and k8s manifests.
-- `docs/`: ROADMAP, DEPLOYMENT, PORTS, VALIDATION.
+- `web/models/`: model registry (pinned revisions, SHA-256 per file); `web/vendor/`: ONNX Runtime Web with hash manifest.
+- `docs/`: ROADMAP, TOOLS, ONCOLOGY, ML, VALIDATION, DEPLOYMENT, PORTS.
+- Reference values for tests come from R/Python scripts in `tests/fixtures/`; new engines need one before release.
