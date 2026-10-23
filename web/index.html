@@ -240,6 +240,12 @@
             <td class="tol">1e-9 – 1e-12</td>
           </tr>
           <tr>
+            <th scope="row">Machine learning</th>
+            <td>Elastic-net logistic and Cox regression; decision trees, gradient boosting; DeLong AUC; calibration intercept and slope; PCA; k-means and silhouette. Random forests and survival forests are checked for reproducibility and out-of-bag honesty</td>
+            <td>R <code>glmnet</code>, <code>pROC</code>, <code>glm</code>; scikit-learn <code>DecisionTreeClassifier</code>, <code>GradientBoostingClassifier</code>, <code>PCA</code>, <code>KMeans</code></td>
+            <td class="tol">1e-7 – 1e-12</td>
+          </tr>
+          <tr>
             <th scope="row">Meta-analysis</th>
             <td>Fixed effect; DerSimonian–Laird, Paule–Mandel and REML τ²; Hartung–Knapp; prediction intervals; Egger’s test; leave-one-out; cumulative</td>
             <td>REML and Paule–Mandel τ² matched to direct likelihood optimisation; DerSimonian–Laird and Hartung–Knapp to closed form in NumPy</td>

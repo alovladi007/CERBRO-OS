@@ -2,7 +2,7 @@ import { $, $$, esc, icon, pageHead, notice, toast, compute } from '../ui.mjs';
 
 export const TABS = [
   ['cohort', 'Cohort explorer', 'database'], ['stats', 'Hypothesis tests', 'chart'], ['regression', 'Regression', 'chart'], ['survival', 'Survival', 'chart'],
-  ['oncology', 'Oncology', 'chart'], ['signal', 'Signal studio', 'wave'], ['meta', 'Meta-analysis', 'sparkle'], ['power', 'Power & sample size', 'flask'],
+  ['oncology', 'Oncology', 'chart'], ['ml', 'Machine learning', 'sparkle'], ['signal', 'Signal studio', 'wave'], ['meta', 'Meta-analysis', 'sparkle'], ['power', 'Power & sample size', 'flask'],
 ];
 
 /** Shared in-memory dataset for cohort / stats / regression / survival. Never persisted. */
@@ -71,13 +71,15 @@ export const opts = (cols, selected) => cols.map(c => `<option value="${c.index}
 export function dataBar() {
   return `<div class="card flat" style="margin-bottom:16px"><div class="inline" style="justify-content:space-between">
     <div class="inline">${icon('database', 18)}<div><strong>${lab.data ? esc(lab.data.name) : 'No dataset loaded'}</strong><div class="muted small">${lab.data ? `${lab.data.rows.length.toLocaleString()} rows · ${lab.data.headers.length} columns · delimiter “${lab.data.delimiter === '\t' ? 'tab' : esc(lab.data.delimiter || ',')}” · held in memory only` : 'Load a CSV/TSV (up to 50 MB, parsed off the main thread) or the synthetic example.'}</div></div></div>
-    <div class="inline"><label class="btn small" for="csv-file">${icon('upload', 14)} Load CSV</label><input type="file" id="csv-file" accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values" hidden><button class="btn small" id="demo-data">Synthetic cohort</button><button class="btn small" id="demo-onc">Synthetic oncology trial</button></div>
+    <div class="inline"><label class="btn small" for="csv-file">${icon('upload', 14)} Load CSV</label><input type="file" id="csv-file" accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values" hidden><button class="btn small" id="demo-data">Synthetic cohort</button><button class="btn small" id="demo-onc">Synthetic oncology trial</button><button class="btn small" id="demo-bx">Synthetic biomarker cohort</button></div>
   </div></div>`;
 }
 export function wireDataBar(root) {
   $('#demo-data', root).onclick = () => setDataObject(syntheticCohort()).then(() => toast('Synthetic cohort loaded (fictional data).'));
   const onc = $('#demo-onc', root);
   if (onc) onc.onclick = () => setDataObject(syntheticOncology()).then(() => toast('Synthetic oncology trial loaded (fictional data).'));
+  const bx = $('#demo-bx', root);
+  if (bx) bx.onclick = () => import('../../../lib/ml-demo.mjs').then(m => setDataObject(m.syntheticBiomarker())).then(() => toast('Synthetic biomarker cohort loaded (fictional data).'));
   $('#csv-file', root).onchange = async e => {
     const f = e.target.files[0]; e.target.value = '';
     if (!f) return;

@@ -186,3 +186,14 @@ export function spiderChart(series, { xLabel = 'Weeks since baseline', title = '
   return lineChart(S.map(s => ({ points: s.points, c: { CR: 0, PR: 1, SD: 4, PD: 2 }[s.group] ?? 0, label: '' })), { xLabel, yLabel: 'Change from baseline (%)', title, markers: [] })
     + `<div class="legend">${['CR', 'PR', 'SD', 'PD'].filter(g => S.some(s => s.group === g)).map(g => `<span><i class="sw ${RESPONSE_CLASS[g]}"></i>${g}</span>`).join('')}</div>`;
 }
+
+/** Scatter coloured by group (e.g. clusters on principal components). points: [[x, y, group], …] */
+export function groupScatter(points, { xLabel = '', yLabel = '', title = 'Scatter plot by group', labels = [] } = {}) {
+  const P = points.filter(p => Number.isFinite(p[0]) && Number.isFinite(p[1]));
+  if (!P.length) return '';
+  const xs = P.map(p => p[0]), ys = P.map(p => p[1]), px = (Math.max(...xs) - Math.min(...xs)) * 0.05 || 1, py = (Math.max(...ys) - Math.min(...ys)) * 0.08 || 1;
+  const f = frame({ xLo: Math.min(...xs) - px, xHi: Math.max(...xs) + px, yLo: Math.min(...ys) - py, yHi: Math.max(...ys) + py, xLabel, yLabel });
+  const groups = [...new Set(P.map(p => p[2]))].sort((a, b) => a - b);
+  return svg(f.w, f.h, title, f.grid + P.slice(0, 5000).map(p => `<circle class="f${groups.indexOf(p[2]) % 5 + 1} dot" cx="${f.X(p[0]).toFixed(1)}" cy="${f.Y(p[1]).toFixed(1)}" r="3"/>`).join('') + f.axes)
+    + legend(groups.map((g, i) => ({ label: labels[i] ?? `Group ${g}`, c: i })));
+}

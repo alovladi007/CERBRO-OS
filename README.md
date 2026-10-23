@@ -11,14 +11,11 @@ Cerebro OS grew out of the *AXON Research v0.1* prototype. It is a ground-up reb
 ```sh
 npm start            # http://localhost:4700  (Node ≥ 20, no npm install needed)
 npm run dev          # http://localhost:4701 with access logs
-npm test             # 57 tests: numerical engines, app logic, policy, server
+npm test             # 89 tests: numerical engines, ML, app logic, policy, server
 npm run check        # syntax-check every module
 ```
 
-The build-out and scaling plan is in [`docs/ROADMAP.md`](docs/ROADMAP.md), with product tracks in [`docs/TOOLS.md`](docs/TOOLS.md) and [`docs/ONCOLOGY.md`](docs/ONCOLOGY.md) (cancer research and data analysis). Ports are listed in [`docs/PORTS.md`](docs/PORTS.md); they avoid every port reserved by the other local platforms, and a test enforces this.
-
-```sh
-```
+The build-out and scaling plan is in [`docs/ROADMAP.md`](docs/ROADMAP.md), with product tracks in [`docs/TOOLS.md`](docs/TOOLS.md), [`docs/ONCOLOGY.md`](docs/ONCOLOGY.md) (cancer research and data analysis) and [`docs/ML.md`](docs/ML.md) (machine learning). Ports are listed in [`docs/PORTS.md`](docs/PORTS.md); they avoid every port reserved by the other local platforms, and a test enforces this.
 
 - `/` is the commercial landing page, with `/privacy.html`, `/terms.html` and `/security.html`.
 - `/app/` is the research workspace.
@@ -34,6 +31,7 @@ The build-out and scaling plan is in [`docs/ROADMAP.md`](docs/ROADMAP.md), with 
 | **Regression** | Multiple OLS with dummy-coded categorical predictors, CIs, R², F-test and a residual plot. |
 | **Survival** | Kaplan–Meier with log-log CIs and medians; k-group log-rank test. |
 | **Oncology** | Cox regression (Efron/Breslow, strata) with the proportional-hazards test; competing risks (cumulative incidence, Gray's test); RMST; waterfall, swimmer and spider plots with ORR/DCR exact CIs; Simon two-stage and BOIN designs; RECIST 1.1 calculator. Validated against R `survival`, `cmprsk`, `survRM2` and `clinfun`. |
+| **Machine learning** | Penalised (elastic-net) logistic and Cox regression, decision trees, random forests, random survival forests and gradient boosting. Stratified cross-validation with leak-free preprocessing; AUC with DeLong CI, calibration plots, Harrell's C, IPCW Brier score; permutation importance; subgroup and leave-one-site-out validation; frozen models re-applied to new data; PCA and k-means subtype discovery. Exports a model card and a TRIPOD+AI draft. Validated against R `glmnet`/`pROC` and scikit-learn. |
 | **Signal** | Bluestein/radix-2 FFT, Welch PSD, zero-phase high-pass, low-pass and notch filters, spectrogram, band power, spectral entropy, aperiodic 1/f exponent and artifact flagging. Handles up to 5 M samples in a Web Worker. |
 | **Meta-analysis** | Fixed and random effects (DL, Paule–Mandel, REML), Hartung–Knapp, prediction intervals, forest and funnel plots, Egger's test, leave-one-out, cumulative analysis, ratio back-transform, and effect-size converters (means → g; 2×2 → log OR, log RR or RD). |
 | **Power** | Exact noncentral-t power (two-sample, paired, one-sample, unequal allocation), proportions, correlation, time-to-event (Schoenfeld), power curves and minimum detectable effect. |
@@ -69,7 +67,7 @@ The numerical engines are checked against reference values computed independentl
 web/            static site root (deploy this)
   index.html    landing page · privacy/terms/security/404
   app/          workspace (index.html, app.css, js/ modules, js/views/, js/views/lab/)
-  lib/          scientific core: stats, meta, power, signal, csv, worker
+  lib/          scientific core: stats, meta, power, signal, oncology, ml, csv, worker
 server/         zero-dependency Node server + OpenAI bot policy + IP-range snapshot
 deploy/         nginx, Cloudflare Worker, Vercel middleware, docker-compose, k8s
 scripts/        config generator, IP-range refresher, syntax checker
