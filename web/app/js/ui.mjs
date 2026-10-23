@@ -116,6 +116,6 @@ export function compute(fn, ...args) {
     const id = ++seq;
     return new Promise((resolve, reject) => { pending.set(id, { resolve, reject }); worker.postMessage({ id, fn, args }); });
   } catch {
-    return import('../../lib/science.mjs').then(S => S[fn](...args));
+    return Promise.all([import('../../lib/science.mjs'), import('../../lib/ml.mjs')]).then(([S, ML]) => (ML[fn] || S[fn])(...args));
   }
 }

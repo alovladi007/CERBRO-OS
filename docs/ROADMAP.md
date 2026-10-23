@@ -2,7 +2,7 @@
 
 _Last updated: 2026-10-22_
 
-Related plans: **`docs/TOOLS.md`** (tools for physicians, researchers and scientists) and **`docs/ONCOLOGY.md`** (cancer research and data-analysis track).
+Related plans: **`docs/TOOLS.md`** (tools for physicians, researchers and scientists), **`docs/ONCOLOGY.md`** (cancer research and data-analysis track) and **`docs/ML.md`** (machine learning).
 
 ## 1. What Cerebro OS is
 
@@ -37,7 +37,7 @@ Research use only. Not a medical device. No patient data.
 
 - **Local-first.** Projects, decisions and run history are stored in the user's browser. Participant-level data loaded into the lab is never uploaded.
 - **The server holds no data.** It serves files and enforces policy, so it is cheap and easy to scale.
-- **Verified maths.** 59 automated tests, with reference values computed independently in SciPy/NumPy (`docs/VALIDATION.md`).
+- **Verified maths.** 89 automated tests, with reference values computed independently in SciPy/NumPy, R and scikit-learn (`docs/VALIDATION.md`).
 - **OpenAI restraint, five layers.** Server 403 by user agent and published IP ranges; robots.txt, ai.txt and noai tags; CSP egress allowlist; runtime fetch guard; no framing. Details are in `docs/DEPLOYMENT.md`.
 
 ### Ports (see `docs/PORTS.md`; enforced by `tests/ports.test.mjs`)
@@ -96,6 +96,7 @@ Each phase builds on the one before. Tick items as they ship.
 ### Product tracks (run alongside the phases)
 - **Tools by community:** see `docs/TOOLS.md`. First up: the end-to-end systematic review and the journal-club kit.
 - **Cancer research and data analysis:** see `docs/ONCOLOGY.md`. First up: the oncology survival suite (Cox, competing risks, RMST, waterfall/swimmer plots), trial-design calculators, then cancer data connectors (GDC, cBioPortal, CIViC, Open Targets).
+- **Machine learning:** see `docs/ML.md`. Stage 1 (in-browser ML tools: penalised regression, forests, boosting, validation, model cards, TRIPOD+AI) has started; then pretrained models, GPU jobs, federated learning and a sourced research assistant.
 - **Analysis platform:** in-browser Python/R (Pyodide/WebR), notebooks, publication outputs. Details in `docs/ONCOLOGY.md` §3.
 
 ### Phase 4: Depth and integrations

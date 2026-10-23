@@ -39,6 +39,7 @@ Each new origin goes into `CONNECT_ALLOWLIST` in `web/app/js/policy.mjs`, follow
 | Competing risks | Cumulative incidence (Aalen–Johansen), Gray's test, Fine–Gray subdistribution hazards | **Shipped:** CIF and Gray's test. Next: Fine–Gray |
 | Response and trial plots | Waterfall, swimmer and spider plots; ORR and DCR with exact (Clopper–Pearson) CIs | **Shipped** |
 | Trial design | Simon two-stage, single-arm exact binomial, BOIN / 3+3 dose finding, group-sequential boundaries (O'Brien–Fleming, Lan–DeMets), non-inferiority, events-driven sample size | **Shipped:** Simon, BOIN, exact CI, RECIST 1.1 calculator. Next: group sequential, non-inferiority |
+| Prediction models | Penalised Cox and logistic regression, survival forests, boosting, cross-validation, calibration, subgroup and site validation, TRIPOD+AI (see `docs/ML.md`) | **Shipped:** Analysis lab → Machine learning |
 | Biomarkers | ROC/AUC with DeLong CI, sensitivity/specificity, cut-point analysis with optimism correction, time-dependent ROC, nomograms | New |
 | Regression | Logistic, Poisson/negative binomial, multiple imputation (MICE), propensity scores (matching, IPTW) for real-world evidence | OLS already exists |
 | Cancer epidemiology | Crude and age-standardised rates (direct/indirect, SEER and WHO standard populations), SIR/SMR with exact CIs, relative survival (Ederer II / Pohar-Perme), joinpoint-style trend analysis | New |
