@@ -682,6 +682,7 @@ export function trainEvaluate(spec) {
     result.calibration = calibrationBins(oc.y, oof);
     result.roc = rocCurve(oc.y, oof);
   }
+  result.oof = survival ? { time: oc.time, status: oc.status, risk: oofRisk, surv: oofSurv } : { y: oc.y, prob: oof };
   if (importance) result.importance = [...imp.entries()].map(([feature, d]) => ({ feature, drop: meanOf(d), sd: sdOf(d) })).sort((a, b) => b.drop - a.drop);
   if (subgroup) result.subgroups = subgroupMetrics(headers, R, subgroup, survival ? { time: oc.time, status: oc.status, risk: oofRisk, surv: oofSurv, horizon } : { y: oc.y, prob: oof });
   if (site) result.sites = leaveOneSiteOut(headers, R, site, fitOn, predictOn, sub, survival, horizon, seed);
@@ -855,7 +856,7 @@ export function clusterAnalysis({ headers, rows, features, kMin = 2, kMax = 6, s
   for (let k = kMin; k <= Math.min(kMax, X.length - 1); k++) { const km = kmeans(Z, k, { seed: seed + k }); runs.push({ k, inertia: km.inertia, silhouette: silhouette(Z, km.labels, { seed }), labels: km.labels, centers: km.centers }); }
   const best = runs.reduce((a, b) => (b.silhouette > a.silhouette ? b : a));
   const profile = best.centers.map((c, j) => ({ cluster: j + 1, n: best.labels.filter(l => l === j).length, center: c }));
-  return { version: ML_VERSION, n: X.length, columns: pre.columns, pca: { explained: P.explained, components: P.components, scores: P.scores.map(s => s.slice(0, 2)) },
+  return { version: ML_VERSION, n: X.length, columns: pre.columns, _Z: Z, pca: { explained: P.explained, components: P.components, scores: P.scores.map(s => s.slice(0, 2)) },
     runs: runs.map(({ k, inertia, silhouette: s }) => ({ k, inertia, silhouette: s })), best: { k: best.k, silhouette: best.silhouette, labels: best.labels, profile } };
 }
 

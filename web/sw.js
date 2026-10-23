@@ -7,7 +7,7 @@ const SHELL = [
   '/app/js/boot.mjs', '/app/js/main.mjs', '/app/js/guard.mjs', '/app/js/policy.mjs', '/app/js/store.mjs', '/app/js/ui.mjs', '/app/js/charts.mjs', '/app/js/sources.mjs',
   '/app/js/views/overview.mjs', '/app/js/views/evidence.mjs', '/app/js/views/screening.mjs', '/app/js/views/datasets.mjs', '/app/js/views/lab.mjs', '/app/js/views/protocols.mjs', '/app/js/views/library.mjs', '/app/js/views/settings.mjs',
   '/app/js/views/lab/cohort.mjs', '/app/js/views/lab/stats.mjs', '/app/js/views/lab/regression.mjs', '/app/js/views/lab/survival.mjs', '/app/js/views/lab/signal.mjs', '/app/js/views/lab/meta.mjs', '/app/js/views/lab/power.mjs', '/app/js/views/lab/oncology.mjs', '/app/js/views/lab/ml.mjs',
-  '/lib/science.mjs', '/lib/stats.mjs', '/lib/meta.mjs', '/lib/power.mjs', '/lib/signal.mjs', '/lib/csv.mjs', '/lib/worker.mjs', '/lib/oncology.mjs', '/lib/ml.mjs', '/lib/ml-demo.mjs', '/lib/ml-report.mjs',
+  '/lib/science.mjs', '/lib/stats.mjs', '/lib/meta.mjs', '/lib/power.mjs', '/lib/signal.mjs', '/lib/csv.mjs', '/lib/worker.mjs', '/lib/oncology.mjs', '/lib/ml.mjs', '/lib/ml-demo.mjs', '/lib/ml-report.mjs', '/lib/ml-eval.mjs', '/lib/ml-shap.mjs', '/lib/ml-embed.mjs', '/lib/ml-pipeline.mjs',
 ];
 
 self.addEventListener('install', e => {

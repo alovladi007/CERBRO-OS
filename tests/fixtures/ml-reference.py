@@ -1,6 +1,7 @@
 # Reference values for tests/ml.test.mjs (scikit-learn side). Run after ml-reference.R:
 #   python3 tests/fixtures/ml-reference.py
-# Reads ml-reference-r.json (R: glmnet, pROC, glm, survival), adds scikit-learn results,
+# Reads ml-reference-r.json (R: glmnet, pROC, glm, survival, dcurves), adds scikit-learn, shap
+# and scikit-survival results,
 # and writes the combined tests/fixtures/ml-reference.json.
 import json
 import os
@@ -11,6 +12,10 @@ from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
+from sklearn.manifold import trustworthiness
+import shap
+from sksurv.metrics import cumulative_dynamic_auc
+from sksurv.util import Surv
 
 d = json.load(open('tests/fixtures/ml-reference-r.json'))
 X = np.array(d['X'], dtype=float)
@@ -36,5 +41,18 @@ d['sklearn'] = {
     'kmeans_inertia': float(km.inertia_),
     'silhouette': float(silhouette_score(X[:, :3], km.labels_)),
 }
+# TreeSHAP (path-dependent) on the same tree and boosting models
+d['sklearn']['shap_version'] = shap.__version__
+d['sklearn']['tree_shap'] = shap.TreeExplainer(tree, feature_perturbation='tree_path_dependent').shap_values(test[:10])[..., 1].tolist()
+eg = shap.TreeExplainer(gbm, feature_perturbation='tree_path_dependent')
+d['sklearn']['gbm_shap'] = eg.shap_values(test[:10]).tolist()
+d['sklearn']['gbm_shap_base'] = float(np.ravel(eg.expected_value)[0])
+# trustworthiness of the 2-D PCA projection
+d['sklearn']['trust_k5'] = float(trustworthiness(X, pca.transform(X)[:, :2], n_neighbors=5))
+# time-dependent AUC (Uno IPCW, cumulative/dynamic) with the R Cox risk score
+yt = Surv.from_arrays(event=np.array(d['status'], dtype=bool), time=np.array(d['time'], dtype=float))
+times = [3.0, 6.0, 9.0]
+auc, _ = cumulative_dynamic_auc(yt, yt, np.array(d['conc']['risk']), times)
+d['sksurv'] = {'times': times, 'auc': auc.tolist()}
 json.dump(d, open('tests/fixtures/ml-reference.json', 'w'))
 os.remove('tests/fixtures/ml-reference-r.json')
