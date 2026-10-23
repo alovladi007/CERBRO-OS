@@ -2,7 +2,7 @@
   "name": "cerebro-os",
   "version": "1.0.0",
   "private": true,
-  "description": "Cerebro OS — buildless neuroscience research workspace, with a zero-dependency Node server that refuses OpenAI agents.",
+  "description": "Cerebro OS \u2014 buildless neuroscience research workspace, with a zero-dependency Node server that refuses OpenAI agents.",
   "type": "module",
   "engines": {
     "node": ">=20"
@@ -14,6 +14,9 @@
     "check": "node scripts/check.mjs",
     "gen:hosts": "node scripts/gen-host-configs.mjs",
     "check:hosts": "node scripts/gen-host-configs.mjs --check",
-    "refresh:openai": "node scripts/refresh-openai-ranges.mjs"
+    "refresh:openai": "node scripts/refresh-openai-ranges.mjs",
+    "fetch:models": "node scripts/fetch-models.mjs",
+    "test:models": "node scripts/test-models.mjs",
+    "vendor:onnxruntime": "node scripts/vendor-onnxruntime.mjs"
   }
 }

@@ -1,6 +1,6 @@
 # Cerebro OS — Machine Learning Plan
 
-_Last updated: 2026-10-23. Companion to `docs/ROADMAP.md` (phases), `docs/ONCOLOGY.md` (cancer track) and `docs/VALIDATION.md` (how engines are checked)._
+_Last updated: 2026-10-23 (Stages 1 and 2 shipped). Companion to `docs/ROADMAP.md` (phases), `docs/ONCOLOGY.md` (cancer track) and `docs/VALIDATION.md` (how engines are checked)._
 
 **Aim:** make Cerebro OS the place where research ML, cancer ML first, is **trustworthy and reproducible**. Every model carries:
 - its validation: cross-validation, calibration, external validation and subgroup checks;
@@ -20,7 +20,7 @@ Research use only. A model that predicts outcomes for an individual patient to g
 | **C. AI research assistant** | Questions over literature and the user's own results, with every claim sourced | 5 | Server plus a non-OpenAI model provider |
 | **D. Learning across institutions** | Federated training: the model travels, the data stays at each site | 4 | Hospital sites plus a coordinator |
 
-## 2. Stage 1: ML analysis tools in the browser (started)
+## 2. Stage 1: ML analysis tools in the browser (shipped)
 
 Lives in the **Analysis lab → Machine learning** tab, with the engine in `web/lib/ml.mjs`.
 
@@ -37,15 +37,35 @@ Lives in the **Analysis lab → Machine learning** tab, with the engine in `web/
 
 Preprocessing (median/mode imputation, one-hot coding, standardisation) is learned inside each training fold and frozen with the model, so cross-validation does not leak. Exported models are plain JSON with no code, and can be re-applied to new data in the browser.
 
-### Next in Stage 1
-- UMAP and t-SNE embeddings (seeded, with documented parameters).
-- Time-dependent AUC; decision-curve analysis (net benefit); bootstrap optimism correction (Harrell).
-- Multiple imputation (MICE) inside cross-validation; class-imbalance handling (weights) with a calibration warning.
-- Hyperparameter search for forests and boosting (small grid, nested).
-- SHAP-style attributions for tree ensembles (TreeSHAP).
+### Shipped in the second PR (Stage 1 completion)
+| Area | Methods | Checked against |
+|---|---|---|
+| Clinical utility | Decision-curve analysis (net benefit vs. treat all / treat none), binary and time-to-event | R `dcurves` (to 1e-12) |
+| Discrimination over time | Cumulative/dynamic time-dependent AUC with IPCW (Uno) | scikit-survival `cumulative_dynamic_auc` (to 1e-12) |
+| Optimism | Harrell's bootstrap optimism correction (whole procedure refitted per replicate) | Property tests |
+| Explanations | Exact path-dependent TreeSHAP (tree, forest, survival forest, boosting); exact linear SHAP for penalised models; per-row explanations | `shap.TreeExplainer` (to 1e-10) |
+| Embeddings | Seeded UMAP (as umap-learn) with trustworthiness | a/b curve vs. scipy `curve_fit`; trustworthiness vs. scikit-learn |
 
-## 3. Stage 2: pretrained models in the browser
+### Still to do in Stage 1
+- t-SNE; multiple imputation (MICE) inside cross-validation; class weights with a calibration warning.
+- Hyperparameter search for forests and boosting (small nested grid).
+- Calibration curves with smoothing (loess); net-benefit confidence bands.
 
+## 3. Stage 2: pretrained models in the browser (shipped)
+
+**What shipped** (workspace → **Pretrained models**):
+- ONNX Runtime Web 1.30.0 (MIT) vendored under `web/vendor/onnxruntime-web/1.30.0/` by `npm run vendor:onnxruntime`. The script checks npm's SHA-512 integrity and writes a SHA-256 manifest, which the tests verify. The runtime makes no third-party requests.
+- CSP: `script-src 'self' 'wasm-unsafe-eval'`. This allows WebAssembly compilation only; `eval` stays blocked, and the tests assert there is no `'unsafe-eval'`. `connect-src` is unchanged: model files load from this site, or from a file the user chooses on their device.
+- Model registry `web/models/registry.json`. Each entry has a pinned source revision, licence, commercial-use flag, intended use, training data, evaluation status, limitations and citation, plus the size and SHA-256 of every file. Files are refused on any mismatch. Verified files are cached in the browser (Cache Storage), and inference runs in a module worker.
+- `npm run fetch:models` downloads registered weights from their pinned revision and verifies them. The weights are not committed.
+- First model: **biomedical entity recognition** (`onnx-community/biomedical-ner-all-ONNX`, Apache-2.0; DistilBERT, int8).
+  - The WordPiece tokenizer matches Hugging Face `tokenizers` exactly, including offsets.
+  - Entity grouping matches the transformers pipeline ("simple" and "first").
+  - Long texts are split into 512-token windows at word boundaries.
+  - It is reachable from Evidence search ("Tag entities" on an abstract).
+- Validation of int8 inference (`npm run test:models`): integer kernels differ between runtimes, so outputs are compared with the full-precision model. This runtime's token labels agree with fp32 at least as often as Python onnxruntime's int8 labels do (91–95% of tokens on sample texts).
+
+**Design notes (as planned):**
 - **Runtime.** ONNX Runtime Web (WASM, then WebGPU) is self-hosted under `web/vendor/`, with no CDN.
   - This needs a reviewed CSP change: `script-src 'wasm-unsafe-eval'`.
   - Model weights are downloaded only from origins added to `CONNECT_ALLOWLIST` in `policy.mjs` (e.g. Hugging Face), followed by `npm run gen:hosts`.
@@ -116,8 +136,9 @@ Preprocessing (median/mode imputation, one-hot coding, standardisation) is learn
 | # | Deliverable | Stage | Effort | Dependency |
 |---|---|---|---|---|
 | 1 | ✅ ML engine v1: elastic-net logistic and Cox, forests, RSF, boosting, CV, calibration, DeLong, PCA, k-means, model cards, TRIPOD+AI draft | 1 | Medium | Shipped (Analysis lab → Machine learning) |
-| 2 | UMAP, decision curves, optimism correction, TreeSHAP, MICE | 1 | Medium | None |
-| 3 | ONNX runtime + model registry + CSP review; literature-extraction model | 2 | Medium | Policy review |
+| 2 | ✅ UMAP, decision curves, time-dependent AUC, optimism correction, TreeSHAP (MICE, t-SNE next) | 1 | Medium | Shipped |
+| 3 | ✅ ONNX runtime + model registry + CSP change; biomedical entity recognition | 2 | Medium | Shipped |
+| 3b | More registry models: gene/variant NER for abstracts, small radiology segmentation, pathology tile demo (licences checked); WebGPU backend | 2 | Medium | Licence review per model |
 | 4 | Sourced research assistant (non-OpenAI) | 5 | Medium | Provider choice, server proxy |
 | 5 | GPU job service | 3 | High | ROADMAP Phase 1 (accounts) |
 | 6 | Federated pilot with two sites | 4 | High | Partners, agreements |

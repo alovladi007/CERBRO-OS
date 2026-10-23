@@ -333,3 +333,15 @@ details summary { cursor: pointer; }
 .chart:not(.chart-scroll .chart) { max-width: 1000px; }
 .list-row > .inline { flex-wrap: nowrap; flex: none; }
 @media (max-width: 600px) { .lede p { font-size: 16.5px; } .stat strong { font-size: 28px; } }
+
+/* pretrained models: entity highlighting */
+.kv.prose dd { font-family: inherit; font-size: 12.5px; }
+.chip .sw { width: 10px; height: 10px; display: inline-block; }
+.chip .f1, .ent.e1 { --ent: var(--chart-1); } .chip .f2, .ent.e2 { --ent: var(--chart-2); } .chip .f3, .ent.e3 { --ent: var(--chart-3); } .chip .f4, .ent.e4 { --ent: var(--chart-4); } .chip .f5, .ent.e5 { --ent: var(--chart-5); }
+.chip .sw { background: var(--ent); }
+.ner-text { margin: 12px 0; padding: 14px 16px; border: 1px solid var(--line); background: var(--bg-elev); line-height: 2.1; font-size: 15px; overflow-wrap: anywhere; }
+mark.ent { background: transparent; color: inherit; border-bottom: 2px solid var(--ent); padding: 0 1px; }
+mark.ent small { font-family: var(--font-mono); font-size: 9.5px; color: var(--muted); margin-left: 3px; letter-spacing: .02em; }
+.file-list { list-style: none; padding: 0; margin: 0 0 12px; }
+.file-list li { padding: 6px 0; border-bottom: 1px solid var(--line); }
+.file-list .mono { font-size: 10.5px; color: var(--muted); overflow-wrap: anywhere; }

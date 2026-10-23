@@ -58,6 +58,9 @@ test('Content-Security-Policy pins connect-src, forbids framing and never mentio
   assert.ok(csp.includes("object-src 'none'"));
   assert.doesNotMatch(csp, /openai|chatgpt/i);
   assert.doesNotMatch(csp, /\*/);
+  // WebAssembly compilation only: no 'unsafe-eval', no remote script origins
+  assert.ok(csp.includes("script-src 'self' 'wasm-unsafe-eval';"));
+  assert.doesNotMatch(csp, /'unsafe-eval'/);
   const h = securityHeaders();
   assert.equal(h['Content-Security-Policy'], csp);
   assert.equal(h['X-Frame-Options'], 'DENY');

@@ -6,7 +6,7 @@ const OPENAI_DENY_HOSTS = ["openai.com","api.openai.com","chatgpt.com","chat.ope
 const EXEMPT_PATHS = new Set(["/robots.txt","/ai.txt"]);
 const BLOCK_MESSAGE = "Access by OpenAI agents is not permitted by the Cerebro OS operator.\n";
 const BLOCKED_HEADERS = {
-  "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://www.ebi.ac.uk https://eutils.ncbi.nlm.nih.gov https://clinicaltrials.gov https://api.dandiarchive.org https://openneuro.org; worker-src 'self' blob:; manifest-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'self'; object-src 'none'; upgrade-insecure-requests",
+  "Content-Security-Policy": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://www.ebi.ac.uk https://eutils.ncbi.nlm.nih.gov https://clinicaltrials.gov https://api.dandiarchive.org https://openneuro.org; worker-src 'self' blob:; manifest-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'self'; object-src 'none'; upgrade-insecure-requests",
   "X-Content-Type-Options": "nosniff",
   "X-Frame-Options": "DENY",
   "Referrer-Policy": "no-referrer",

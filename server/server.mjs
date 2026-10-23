@@ -12,7 +12,7 @@ import cluster from 'node:cluster';
 import os from 'node:os';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
-import { promises as fsp, realpathSync } from 'node:fs';
+import { promises as fsp, realpathSync, createReadStream } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import zlib from 'node:zlib';
 import { promisify } from 'node:util';
@@ -330,7 +330,21 @@ export function createServer(options = {}) {
     } catch { return null; }
   }
 
+  /** Large files (WebAssembly runtime, model weights): streamed from disk, never buffered or recompressed. */
+  function streamFile(req, res, abs, st) {
+    const type = MIME[path.extname(abs).toLowerCase()] ?? 'application/octet-stream';
+    const etag = `"${st.size.toString(36)}-${Math.floor(st.mtimeMs).toString(36)}"`;
+    const headers = { 'Content-Type': type, 'Cache-Control': 'public, max-age=3600, must-revalidate', ETag: etag, 'Last-Modified': new Date(st.mtimeMs).toUTCString() };
+    if (etagMatches(req.headers['if-none-match'], etag)) { delete headers['Content-Type']; res.writeHead(304, { ...headersFor(req), ...headers }); return res.end(); }
+    res.writeHead(200, { ...headersFor(req), ...headers, 'Content-Length': st.size });
+    if (req.method === 'HEAD') return res.end();
+    const s = createReadStream(abs);
+    s.on('error', () => res.destroy());
+    s.pipe(res);
+  }
+
   async function serveFile(req, res, abs, st, status = 200) {
+    if (status === 200 && st.size > MAX_CACHEABLE_FILE) return streamFile(req, res, abs, st);
     const entry = await loadFile(abs, st);
     const enc = negotiateEncoding(req.headers['accept-encoding']);
     const v = await variant(abs, entry, enc);

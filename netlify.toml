@@ -4,7 +4,7 @@
 # directory). They are not repeated here because Netlify merges matching rules from both sources
 # and duplicated values (e.g. "DENY, DENY") are invalid for some headers.
 # Content-Security-Policy applied via web/_headers:
-#   default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://www.ebi.ac.uk https://eutils.ncbi.nlm.nih.gov https://clinicaltrials.gov https://api.dandiarchive.org https://openneuro.org; worker-src 'self' blob:; manifest-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'self'; object-src 'none'; upgrade-insecure-requests
+#   default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://www.ebi.ac.uk https://eutils.ncbi.nlm.nih.gov https://clinicaltrials.gov https://api.dandiarchive.org https://openneuro.org; worker-src 'self' blob:; manifest-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'self'; object-src 'none'; upgrade-insecure-requests
 
 [build]
   publish = "web"

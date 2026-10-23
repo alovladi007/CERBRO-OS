@@ -11,7 +11,9 @@ Cerebro OS grew out of the *AXON Research v0.1* prototype. It is a ground-up reb
 ```sh
 npm start            # http://localhost:4700  (Node ≥ 20, no npm install needed)
 npm run dev          # http://localhost:4701 with access logs
-npm test             # 89 tests: numerical engines, ML, app logic, policy, server
+npm test             # 106 tests: numerical engines, ML, models, app logic, policy, server
+npm run fetch:models # optional: host model weights (67 MB) so they load from the site
+npm run test:models  # full model inference check (needs the weights)
 npm run check        # syntax-check every module
 ```
 
@@ -31,7 +33,8 @@ The build-out and scaling plan is in [`docs/ROADMAP.md`](docs/ROADMAP.md), with 
 | **Regression** | Multiple OLS with dummy-coded categorical predictors, CIs, R², F-test and a residual plot. |
 | **Survival** | Kaplan–Meier with log-log CIs and medians; k-group log-rank test. |
 | **Oncology** | Cox regression (Efron/Breslow, strata) with the proportional-hazards test; competing risks (cumulative incidence, Gray's test); RMST; waterfall, swimmer and spider plots with ORR/DCR exact CIs; Simon two-stage and BOIN designs; RECIST 1.1 calculator. Validated against R `survival`, `cmprsk`, `survRM2` and `clinfun`. |
-| **Machine learning** | Penalised (elastic-net) logistic and Cox regression, decision trees, random forests, random survival forests and gradient boosting. Stratified cross-validation with leak-free preprocessing; AUC with DeLong CI, calibration plots, Harrell's C, IPCW Brier score; permutation importance; subgroup and leave-one-site-out validation; frozen models re-applied to new data; PCA and k-means subtype discovery. Exports a model card and a TRIPOD+AI draft. Validated against R `glmnet`/`pROC` and scikit-learn. |
+| **Machine learning** | Penalised (elastic-net) logistic and Cox regression, decision trees, random forests, random survival forests and gradient boosting. Stratified cross-validation with leak-free preprocessing; AUC with DeLong CI, calibration plots, Harrell's C, IPCW Brier score; permutation importance; subgroup and leave-one-site-out validation; frozen models re-applied to new data; PCA and k-means subtype discovery. Decision curves, time-dependent AUC, bootstrap optimism correction, TreeSHAP explanations and UMAP maps. Exports a model card and a TRIPOD+AI draft. Validated against R `glmnet`/`pROC`/`dcurves`, scikit-learn, scikit-survival and `shap`. |
+| **Pretrained models** | A registry of open-licence models with pinned revisions and SHA-256 checks, running in the browser on self-hosted ONNX Runtime Web (WebAssembly). First model: biomedical entity recognition for case reports and abstracts (also from Evidence search). Weights are fetched with `npm run fetch:models` or chosen from the user's device. |
 | **Signal** | Bluestein/radix-2 FFT, Welch PSD, zero-phase high-pass, low-pass and notch filters, spectrogram, band power, spectral entropy, aperiodic 1/f exponent and artifact flagging. Handles up to 5 M samples in a Web Worker. |
 | **Meta-analysis** | Fixed and random effects (DL, Paule–Mandel, REML), Hartung–Knapp, prediction intervals, forest and funnel plots, Egger's test, leave-one-out, cumulative analysis, ratio back-transform, and effect-size converters (means → g; 2×2 → log OR, log RR or RD). |
 | **Power** | Exact noncentral-t power (two-sample, paired, one-sample, unequal allocation), proportions, correlation, time-to-event (Schoenfeld), power curves and minimum detectable effect. |

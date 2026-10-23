@@ -241,9 +241,15 @@
           </tr>
           <tr>
             <th scope="row">Machine learning</th>
-            <td>Elastic-net logistic and Cox regression; decision trees, gradient boosting; DeLong AUC; calibration intercept and slope; PCA; k-means and silhouette. Random forests and survival forests are checked for reproducibility and out-of-bag honesty</td>
-            <td>R <code>glmnet</code>, <code>pROC</code>, <code>glm</code>; scikit-learn <code>DecisionTreeClassifier</code>, <code>GradientBoostingClassifier</code>, <code>PCA</code>, <code>KMeans</code></td>
+            <td>Elastic-net logistic and Cox regression; decision trees, gradient boosting; DeLong AUC; calibration intercept and slope; decision curves; time-dependent AUC; TreeSHAP; PCA; k-means and silhouette. Random forests, survival forests and UMAP are checked for reproducibility and by property</td>
+            <td>R <code>glmnet</code>, <code>pROC</code>, <code>glm</code>, <code>dcurves</code>; scikit-learn; scikit-survival; <code>shap</code></td>
             <td class="tol">1e-7 – 1e-12</td>
+          </tr>
+          <tr>
+            <th scope="row">Pretrained models</th>
+            <td>Biomedical entity recognition on self-hosted ONNX Runtime Web: tokenizer, entity grouping, and agreement of int8 labels with the full-precision model</td>
+            <td>Hugging Face <code>tokenizers</code> and <code>transformers</code> pipeline; Python <code>onnxruntime</code></td>
+            <td class="tol">exact / ≥ Python int8</td>
           </tr>
           <tr>
             <th scope="row">Meta-analysis</th>

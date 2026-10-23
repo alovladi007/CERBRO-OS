@@ -40,6 +40,7 @@ function makeFixture() {
   writeFileSync(path.join(root, 'app', 'js', 'big.mjs'), BIG_JS);
   writeFileSync(path.join(root, 'app', 'style.css'), 'body{margin:0}');
   writeFileSync(path.join(root, 'manifest.webmanifest'), '{"name":"Cerebro OS"}');
+  writeFileSync(path.join(root, 'app', 'big.wasm'), Buffer.alloc(5 * 1024 * 1024, 7)); // above the 4 MB in-memory cache limit
   mkdirSync(path.join(root, '.well-known'));
   writeFileSync(path.join(root, '.well-known', 'security.txt'), 'Contact: mailto:security@cerebro-os.example\n');
   return root;
@@ -62,6 +63,20 @@ describe('server', () => {
     await srv.server.drain();
     await proxied.server.drain();
     rmSync(root, { recursive: true, force: true });
+  });
+
+  test('streams large files without buffering or recompressing them, with ETag revalidation', async () => {
+    const r = await request(srv.port, '/app/big.wasm', { headers: { 'accept-encoding': 'br, gzip' } });
+    assert.equal(r.status, 200);
+    assert.equal(r.headers['content-type'], 'application/wasm');
+    assert.equal(r.headers['content-encoding'], undefined);
+    assert.equal(Number(r.headers['content-length']), 5 * 1024 * 1024);
+    assert.equal(r.body.length, 5 * 1024 * 1024);
+    assert.match(r.headers['content-security-policy'], /wasm-unsafe-eval/);
+    const again = await request(srv.port, '/app/big.wasm', { headers: { 'if-none-match': r.headers.etag } });
+    assert.equal(again.status, 304);
+    const head = await request(srv.port, '/app/big.wasm', { method: 'HEAD' });
+    assert.equal(head.status, 200); assert.equal(head.body.length, 0);
   });
 
   test('serves index with security headers', async () => {
