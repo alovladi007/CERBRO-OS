@@ -90,6 +90,18 @@ UMAP layouts, bootstrap optimism and the training report are property-tested: sa
 
 Dynamic int8 models are not bit-reproducible across runtimes: integer kernels differ, and even Python onnxruntime's own optimisation levels disagree by several logits. So full inference is judged against the full-precision model. On the sample texts this runtime's token labels agree with fp32 on 93–95% of tokens, and Python's int8 labels on 92–95%. These checks show the runtime is faithful; they do not measure the model's accuracy.
 
+## Cancer data connectors (`tests/cancer.test.mjs`)
+
+The Gene dossier queries public sources live, so its tests check the transformations offline on recorded KRAS responses (`tests/fixtures/cancer-api/capture.mjs`):
+
+- **cBioPortal mutation frequency:** each sample is counted once, even when it carries several mutations. The per-study counts match an independent recount (pancreatic 117/179, colorectal 218/534, lung adenocarcinoma 168/566; all 32 studies 763/10,443). CIs use the validated Clopper–Pearson engine.
+- **Open Targets:** null records are dropped, drugs are ordered by clinical stage, and UniProt evidence codes are removed.
+- **CIViC:** a gene must appear as a whole word in the molecular-profile name (KRASP1 and BRAF do not count for KRAS). Evidence is counted by level, and the most actionable items come first.
+- **GDC and trials:** GDC case counts are read for the requested gene only. Trials ranking puts trials naming the gene in the title first.
+- **Input checks:** gene symbols are validated before any query, and every connector host is on the egress allowlist.
+
+These checks cover the code, not the sources: the dossier shows each source's own data as retrieved, with its retrieval time.
+
 Random forests and random survival forests draw random numbers differently from other libraries, so they are tested by property: the same seed gives the same model, they recover the known signal in the synthetic biomarker cohort, and out-of-bag performance is below training performance. Cross-validation, leave-one-site-out validation, model export and re-application, subtype recovery, model cards and the TRIPOD+AI draft are also tested.
 
 The 32 original AXON v0.1 checks are kept. One expected value changed: the random-effects lower bound now uses the exact normal quantile 1.959964 instead of the rounded 1.96.

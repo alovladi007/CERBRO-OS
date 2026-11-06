@@ -4,7 +4,10 @@ _Last updated: 2026-10-22. Companion to `docs/ROADMAP.md` (phases) and `docs/TOO
 
 Cerebro OS expands from neuroscience into **oncology** while keeping the local-first, verified-methods approach. **Neuro-oncology** (glioma, glioblastoma, brain metastases) is the bridge: it uses the neuroscience tools we already have and the cancer tools below.
 
-## 1. Data sources (checked 2026-10-22: all callable from the browser via CORS)
+## 1. Data sources (checked 2026-11-06: all callable from the browser via CORS)
+
+**Connected (Gene dossier, Evidence → Gene dossier):** Open Targets, CIViC, cBioPortal and GDC are on the egress allowlist and queried directly by the browser; see §4 #2.
+
 
 | Source | What it gives | Access | Allowlist origin to add |
 |---|---|---|---|
@@ -50,7 +53,7 @@ Every engine follows the existing rule: reference values from established softwa
 ### Cancer biologists and bioinformaticians
 | Tool | What it does | Where it runs |
 |---|---|---|
-| **Gene → target dossier** | Open Targets associations + ChEMBL compounds + CIViC variants + ClinicalTrials.gov + literature, as one sourced page | Browser |
+| **Gene dossier** ✅ | Open Targets target biology, associations and drugs; cBioPortal mutation frequency across 32 TCGA cancer types (exact CIs); CIViC accepted evidence; GDC affected cases per project; recruiting trials; literature; as one sourced page with Markdown/JSON export | Browser |
 | **Cohort explorer for TCGA/cBioPortal** | Pick a study → mutation frequency, CNA, expression; KM split by gene alteration or expression | Browser |
 | **Mutation landscape from MAF/VCF** | OncoPrint, lollipop plots, tumour mutational burden (TMB), co-occurrence and mutual exclusivity (Fisher with FDR) | Browser (Web Worker) |
 | **Mutational signatures** | SBS-96 catalogue; NNLS fit to reference signatures (check the licence terms of the COSMIC signature set) | Browser |
@@ -72,7 +75,7 @@ Every engine follows the existing rule: reference values from established softwa
 | # | Deliverable | Community | Effort | Dependency |
 |---|---|---|---|---|
 | 1 | ✅ Oncology survival suite: Cox PH + PH test, competing risks, RMST, waterfall/swimmer/spider plots, ORR exact CI | Researchers | Medium | Shipped (Analysis lab → Oncology) |
-| 2 | Cancer data connectors (GDC, cBioPortal, CIViC, Open Targets) + gene → target dossier | Scientists and MDs | Medium | Allowlist update |
+| 2 | ✅ Cancer data connectors (GDC, cBioPortal, CIViC, Open Targets) + gene dossier | Scientists and MDs | Medium | Shipped (Evidence → Gene dossier) |
 | 3 | Biomarker trial finder + tumour board prep pack | MDs | Low–medium | #2 |
 | 4 | ✅ Trial design calculators: Simon two-stage, BOIN, exact CI (group sequential next) | Researchers | Low | Shipped |
 | 5 | Mutation landscape from MAF (OncoPrint, lollipop, TMB, signatures) | Scientists | Medium | None |

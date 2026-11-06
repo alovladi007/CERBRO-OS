@@ -27,7 +27,7 @@ To try the tools on fictional data, use the buttons in **Analysis lab**:
 ```sh
 npm start                  # server on 127.0.0.1:4700
 npm run dev                # 127.0.0.1:4701 with access logs
-npm test                   # 114 tests: numerical engines, ML, models, app logic, policy, server
+npm test                   # 120 tests: numerical engines, ML, models, app logic, policy, server
 npm run check              # syntax-check every module
 npm run fetch:models       # download registered model weights from their pinned revisions; verify SHA-256
 npm run fetch:models -- --check   # verify only
@@ -49,6 +49,7 @@ The build-out and scaling plan is in [`docs/ROADMAP.md`](docs/ROADMAP.md), with 
 |---|---|
 | **Evidence** | One query across **Europe PMC, PubMed and ClinicalTrials.gov**. Results are de-duplicated (DOI → PMID → title) and can be filtered by year, open access and sort order. Abstracts load on demand. Results paginate. Saved searches report how many records are new since the last run. Export to BibTeX, RIS, CSV or JSON. |
 | **Screening** | Keyboard-driven include/exclude/maybe decisions (I / E / M, reasons 1–8, J/K, U to undo). A live **PRISMA 2020** flow diagram can be exported as SVG or JSON, and decisions export as CSV. |
+| **Gene dossier** | For any gene, live and sourced: target biology, disease associations and drugs (Open Targets), mutation frequency across 32 TCGA cancer types with exact CIs (cBioPortal), accepted clinical variant evidence (CIViC), affected cases per GDC project, recruiting cancer trials and recent literature. Export a Markdown brief or the JSON data. |
 | **Datasets** | Live search of **OpenNeuro** and **DANDI**, showing versions, subject counts and sizes. A curated directory of 14 repositories and cohorts. |
 | **Statistics** | Welch, Student and paired t-tests; Mann–Whitney U; one-way ANOVA; Kruskal–Wallis; χ²; Pearson and Spearman with CIs; Hedges' g; BH, Holm and Bonferroni corrections. |
 | **Regression** | Multiple OLS with dummy-coded categorical predictors, CIs, R², F-test and a residual plot. |
@@ -69,7 +70,7 @@ The operator does not permit OpenAI agents to access the platform. The restricti
 
 1. **Server 403s.** The server refuses GPTBot, ChatGPT-User, OAI-SearchBot, ChatGPT-Agent and other OpenAI agents. It matches by **user agent** and by **OpenAI's published IP ranges**, which `npm run refresh:openai` updates. It also refuses requests with a ChatGPT/OpenAI Referer.
 2. **Opt-out signals.** `robots.txt`, `ai.txt`, `noai` meta tags and per-agent `X-Robots-Tag` headers.
-3. **The app never contacts OpenAI.** A strict CSP `connect-src` allowlist plus a runtime fetch, beacon and WebSocket guard (`web/app/js/guard.mjs`) block any call to OpenAI. Scripts load only from the site itself. `script-src` adds `'wasm-unsafe-eval'` so the self-hosted model runtime can compile WebAssembly; `eval` stays blocked.
+3. **The app never contacts OpenAI.** A strict CSP `connect-src` allowlist of named research APIs (literature, trials, neuroscience datasets, and Open Targets, CIViC, GDC and cBioPortal for cancer genomics) plus a runtime fetch, beacon and WebSocket guard (`web/app/js/guard.mjs`) block any call to OpenAI. Scripts load only from the site itself. `script-src` adds `'wasm-unsafe-eval'` so the self-hosted model runtime can compile WebAssembly; `eval` stays blocked.
 4. **No embedding.** `frame-ancestors 'none'` and a frame-buster stop the site being framed, for example inside ChatGPT.
 5. **Terms of service.** The terms prohibit using platform content to train or evaluate AI models.
 
@@ -96,7 +97,7 @@ These tests show the arithmetic matches; they are not scientific or clinical val
 ## Status and next steps
 
 - **Shipped:**
-  - Evidence, screening, datasets, statistics, the oncology suite.
+  - Evidence, screening, datasets, statistics, the oncology suite, the gene dossier (cancer data connectors).
   - ML Stage 1: training, imputation, tuning, validation, explanations, model cards, TRIPOD+AI.
   - ML Stage 2: pretrained models in the browser.
 - **Next** (see [`docs/ML.md`](docs/ML.md) and [`docs/ROADMAP.md`](docs/ROADMAP.md)):
