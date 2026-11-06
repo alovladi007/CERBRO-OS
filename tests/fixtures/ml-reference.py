@@ -54,5 +54,39 @@ yt = Surv.from_arrays(event=np.array(d['status'], dtype=bool), time=np.array(d['
 times = [3.0, 6.0, 9.0]
 auc, _ = cumulative_dynamic_auc(yt, yt, np.array(d['conc']['risk']), times)
 d['sksurv'] = {'times': times, 'auc': auc.tolist()}
+# class weights: weighted CART, weighted boosting and TreeSHAP covers on a weighted tree
+from sklearn.experimental import enable_iterative_imputer  # noqa: F401
+from sklearn.impute import IterativeImputer
+from sklearn.linear_model import Ridge
+from sklearn.manifold import TSNE
+from sklearn.manifold._t_sne import _joint_probabilities, _kl_divergence
+from sklearn.metrics import pairwise_distances
+wtr = np.where(y[:150] == 1, 150 / (2 * y[:150].sum()), 150 / (2 * (150 - y[:150].sum())))
+wtree = DecisionTreeClassifier(max_depth=3, min_samples_leaf=5, class_weight='balanced', random_state=0).fit(train, y[:150])
+wgbm = GradientBoostingClassifier(n_estimators=30, learning_rate=0.1, max_depth=2, min_samples_leaf=10, random_state=0).fit(train, y[:150], sample_weight=wtr)
+d['weighted'] = {
+    'tree_proba': wtree.predict_proba(test)[:, 1].tolist(),
+    'tree_shap': shap.TreeExplainer(wtree, feature_perturbation='tree_path_dependent').shap_values(test[:10])[..., 1].tolist(),
+    'gbm_proba': wgbm.predict_proba(test)[:, 1].tolist(),
+}
+# iterative imputation (chained ridge), deterministic
+rs = np.random.RandomState(7)
+Xm = X[:, :5].copy(); Xm[:, 4] = 0.6 * Xm[:, 0] - 0.4 * Xm[:, 1] + 0.2 * rs.randn(200)
+for j, frac in [(0, 0.10), (2, 0.25), (4, 0.15)]:
+    Xm[rs.rand(200) < frac, j] = np.nan
+imp = IterativeImputer(estimator=Ridge(alpha=1.0), initial_strategy='median', imputation_order='ascending', skip_complete=True, max_iter=10, tol=1e-3, sample_posterior=False)
+fitted = imp.fit_transform(Xm[:150])
+Xnew = Xm[150:]
+d['impute'] = {'X': np.where(np.isnan(Xm), None, Xm).tolist(), 'fit': fitted.tolist(), 'transform': imp.transform(Xnew).tolist(), 'n_iter': int(imp.n_iter_)}
+# t-SNE: joint probabilities and KL/gradient at a fixed embedding; full run from a fixed start
+Xs = X[:120, :6]
+Pj = _joint_probabilities(pairwise_distances(Xs, squared=True), 20.0, 0)
+Y0 = rs.randn(120, 2) * 1e-2
+kl, grad = _kl_divergence(Y0.ravel(), Pj, 1, 120, 2)
+ts = TSNE(n_components=2, perplexity=20.0, method='exact', init=(rs.randn(120, 2) * 1e-4).astype(np.float32), random_state=0, max_iter=500)
+emb = ts.fit_transform(Xs)
+# the same start in float64: scikit-learn's own final KL depends on the precision of the start
+ts64 = TSNE(n_components=2, perplexity=20.0, method='exact', init=ts.init.astype(np.float64), random_state=0, max_iter=500).fit(Xs)
+d['tsne'] = {'perplexity': 20.0, 'P': Pj.tolist(), 'Y0': Y0.tolist(), 'kl': float(kl), 'grad': grad.tolist(), 'init': ts.init.astype(float).tolist(), 'kl_final': float(ts.kl_divergence_), 'kl_final_f64': float(ts64.kl_divergence_), 'max_iter': 500, 'trust': float(trustworthiness(Xs, emb, n_neighbors=5))}
 json.dump(d, open('tests/fixtures/ml-reference.json', 'w'))
 os.remove('tests/fixtures/ml-reference-r.json')

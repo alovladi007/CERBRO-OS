@@ -37,7 +37,7 @@ Research use only. Not a medical device. No patient data.
 
 - **Local-first.** Projects, decisions and run history are stored in the user's browser. Participant-level data loaded into the lab is never uploaded.
 - **The server holds no data.** It serves files and enforces policy, so it is cheap and easy to scale.
-- **Verified maths.** 106 automated tests, with reference values computed independently in SciPy/NumPy, R and scikit-learn (`docs/VALIDATION.md`).
+- **Verified maths.** 114 automated tests, with reference values computed independently in SciPy/NumPy, R and scikit-learn (`docs/VALIDATION.md`).
 - **OpenAI restraint, five layers.** Server 403 by user agent and published IP ranges; robots.txt, ai.txt and noai tags; CSP egress allowlist; runtime fetch guard; no framing. Details are in `docs/DEPLOYMENT.md`.
 
 ### Ports (see `docs/PORTS.md`; enforced by `tests/ports.test.mjs`)

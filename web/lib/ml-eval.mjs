@@ -68,7 +68,7 @@ export function optimismBootstrap(spec, { B = 50 } = {}) {
   const oc = extractOutcome(headers, rows, outcome), R = oc.keep.map(k => rows[k]), n = R.length, surv = outcome.type === 'survival';
   const horizon = surv ? (Number.isFinite(spec.horizon) ? spec.horizon : medianEventTime(oc.time, oc.status)) : null;
   const sub = idx => (surv ? { time: idx.map(i => oc.time[i]), status: idx.map(i => oc.status[i]) } : idx.map(i => oc.y[i]));
-  const fit = (idx, s) => { const pre = fitPreprocessor(headers, idx.map(i => R[i]), features); return { pre, model: fitModel(type, transform(pre, headers, idx.map(i => R[i])).X, sub(idx), params, s) }; };
+  const fit = (idx, s) => { const pre = fitPreprocessor(headers, idx.map(i => R[i]), features, { imputation: spec.imputation }); return { pre, model: fitModel(type, transform(pre, headers, idx.map(i => R[i])).X, sub(idx), params, s) }; };
   const score = (f, idx) => {
     const pr = predictModel(f.model, transform(f.pre, headers, idx.map(i => R[i])).X, { times: surv ? [horizon] : [] }), y = sub(idx);
     if (surv) { const b = brierIPCW(y.time, y.status, pr.surv[0], horizon); return { c: concordance(y.time, y.status, pr.risk), brier: b.brier }; }

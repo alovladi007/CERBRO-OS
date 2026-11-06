@@ -27,7 +27,7 @@ To try the tools on fictional data, use the buttons in **Analysis lab**:
 ```sh
 npm start                  # server on 127.0.0.1:4700
 npm run dev                # 127.0.0.1:4701 with access logs
-npm test                   # 106 tests: numerical engines, ML, models, app logic, policy, server
+npm test                   # 114 tests: numerical engines, ML, models, app logic, policy, server
 npm run check              # syntax-check every module
 npm run fetch:models       # download registered model weights from their pinned revisions; verify SHA-256
 npm run fetch:models -- --check   # verify only
@@ -54,7 +54,7 @@ The build-out and scaling plan is in [`docs/ROADMAP.md`](docs/ROADMAP.md), with 
 | **Regression** | Multiple OLS with dummy-coded categorical predictors, CIs, R², F-test and a residual plot. |
 | **Survival** | Kaplan–Meier with log-log CIs and medians; k-group log-rank test. |
 | **Oncology** | Cox regression (Efron/Breslow, strata) with the proportional-hazards test; competing risks (cumulative incidence, Gray's test); RMST; waterfall, swimmer and spider plots with ORR/DCR exact CIs; Simon two-stage and BOIN designs; RECIST 1.1 calculator. Validated against R `survival`, `cmprsk`, `survRM2` and `clinfun`. |
-| **Machine learning** | Penalised (elastic-net) logistic and Cox regression, decision trees, random forests, random survival forests and gradient boosting. Stratified cross-validation with leak-free preprocessing; AUC with DeLong CI, calibration plots, Harrell's C, IPCW Brier score; permutation importance; subgroup and leave-one-site-out validation; frozen models re-applied to new data; PCA and k-means subtype discovery. Decision curves, time-dependent AUC, bootstrap optimism correction, TreeSHAP explanations and UMAP maps. Exports a model card and a TRIPOD+AI draft. Validated against R `glmnet`/`pROC`/`dcurves`, scikit-learn, scikit-survival and `shap`. |
+| **Machine learning** | Penalised (elastic-net) logistic and Cox regression, decision trees, random forests, random survival forests and gradient boosting. Stratified cross-validation with leak-free preprocessing; AUC with DeLong CI, calibration plots, Harrell's C, IPCW Brier score; permutation importance; subgroup and leave-one-site-out validation; frozen models re-applied to new data; PCA and k-means subtype discovery. Iterative imputation inside cross-validation, class weights, nested hyperparameter tuning, smoothed calibration curves, decision curves, time-dependent AUC, bootstrap optimism correction, TreeSHAP explanations, and UMAP and t-SNE maps. Exports a model card and a TRIPOD+AI draft. Validated against R `glmnet`/`pROC`/`dcurves`, scikit-learn, scikit-survival and `shap`. |
 | **Pretrained models** | A registry of open-licence models with pinned revisions and SHA-256 checks, running in the browser on self-hosted ONNX Runtime Web (WebAssembly). First model: biomedical entity recognition for case reports and abstracts (also from Evidence search). Weights are fetched with `npm run fetch:models` or chosen from the user's device. |
 | **Signal** | Bluestein/radix-2 FFT, Welch PSD, zero-phase high-pass, low-pass and notch filters, spectrogram, band power, spectral entropy, aperiodic 1/f exponent and artifact flagging. Handles up to 5 M samples in a Web Worker. |
 | **Meta-analysis** | Fixed and random effects (DL, Paule–Mandel, REML), Hartung–Knapp, prediction intervals, forest and funnel plots, Egger's test, leave-one-out, cumulative analysis, ratio back-transform, and effect-size converters (means → g; 2×2 → log OR, log RR or RD). |
@@ -97,7 +97,7 @@ These tests show the arithmetic matches; they are not scientific or clinical val
 
 - **Shipped:**
   - Evidence, screening, datasets, statistics, the oncology suite.
-  - ML Stage 1: training, validation, explanations, model cards, TRIPOD+AI.
+  - ML Stage 1: training, imputation, tuning, validation, explanations, model cards, TRIPOD+AI.
   - ML Stage 2: pretrained models in the browser.
 - **Next** (see [`docs/ML.md`](docs/ML.md) and [`docs/ROADMAP.md`](docs/ROADMAP.md)):
   - More registry models.

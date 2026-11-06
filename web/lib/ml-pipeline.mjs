@@ -4,7 +4,7 @@
 import { trainEvaluate, transform, clusterAnalysis } from './ml.mjs';
 import { decisionCurve, timeDependentAUC, optimismBootstrap } from './ml-eval.mjs';
 import { shapValues, shapByFeature } from './ml-shap.mjs';
-import { umap, trustworthiness } from './ml-embed.mjs';
+import { umap, tsne, trustworthiness } from './ml-embed.mjs';
 
 const thresholds = Array.from({ length: 99 }, (_, i) => (i + 1) / 100);
 const treeCost = t => (t.f === undefined ? 1 : treeCost(t.l) + treeCost(t.r));
@@ -44,6 +44,11 @@ export function clusterReport(spec) {
     const Z = c._Z, u = umap(Z, { nNeighbors: spec.nNeighbors ?? 15, minDist: spec.minDist ?? 0.1, seed: spec.seed ?? 2026 });
     c.umap = { embedding: u.embedding, nNeighbors: u.nNeighbors, minDist: u.minDist, epochs: u.epochs };
     if (Z.length <= 3000) { c.umap.trust = trustworthiness(Z, u.embedding, 10); c.pca.trust = trustworthiness(Z, c.pca.scores, 10); }
+  }
+  if (spec.embedding === 'tsne') {
+    const Z = c._Z, perplexity = Math.min(spec.perplexity ?? 30, Math.floor((Z.length - 2) / 3)), t = tsne(Z, { perplexity });
+    c.tsne = { embedding: t.embedding, perplexity, kl: t.kl, iterations: t.iterations };
+    if (Z.length <= 3000) { c.tsne.trust = trustworthiness(Z, t.embedding, 10); c.pca.trust = trustworthiness(Z, c.pca.scores, 10); }
   }
   delete c._Z;
   return c;

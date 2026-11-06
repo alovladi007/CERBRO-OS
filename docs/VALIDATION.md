@@ -62,6 +62,19 @@ Stage 1 completion (`tests/ml-extra.test.mjs`):
 | Trustworthiness | `sklearn.manifold.trustworthiness` | 1e-12 |
 | UMAP a/b curve (spread 1, min_dist 0.1) | scipy `curve_fit`, as umap-learn | 2e-6 |
 
+Stage 1 final items (`tests/ml-more.test.mjs`):
+
+| Engine | Reference | Tolerance |
+|---|---|---|
+| Class-weighted elastic-net logistic (coefficients, λ-max) | R `glmnet(weights = …)` | 5e-8 / 1e-12 |
+| Class-weighted CART; weighted gradient boosting; TreeSHAP on a weighted tree | scikit-learn `class_weight="balanced"`, `fit(sample_weight)`; `shap.TreeExplainer` | 1e-10 – 1e-12 |
+| Iterative imputation, fit and transform (number of rounds too) | scikit-learn `IterativeImputer(Ridge(alpha = 1), initial_strategy = "median", skip_complete = True)` | 1e-10 |
+| lowess (iter 3, iter 0, f = 0.3; tied x) | R `stats::lowess` | 1e-12 |
+| t-SNE joint probabilities; KL divergence and gradient | scikit-learn `_joint_probabilities`, `_kl_divergence` | 1e-9 / 1e-10 |
+| t-SNE full run (500 iterations, fixed start) | scikit-learn final KL from float32 and float64 starts (0.440 and 0.495): ours must fall in that band ± 5% | band |
+
+Nested tuning is property-tested: choices come from the documented grid and repeat for a seed.
+
 UMAP layouts, bootstrap optimism and the training report are property-tested: same seed gives the same result, UMAP preserves neighbourhoods better than PCA on the planted subtypes, optimism lowers apparent performance, and SHAP ranks the true prognostic features first.
 
 ## Pretrained models (`tests/models.test.mjs`, `npm run test:models`)

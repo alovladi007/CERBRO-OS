@@ -41,4 +41,11 @@ db <- dca(y ~ p, data = data.frame(y = y, p = pr), thresholds = seq(0.05, 0.95, 
 ps <- 1 - exp(-0.08 * 5 * exp(0.7 * X[, 1] - 0.5 * X[, 4] + 0.1 * X[, 3]))
 ds <- dca(Surv(time, status) ~ p, data = data.frame(time = time, status = status, p = ps), time = 5, thresholds = seq(0.05, 0.95, 0.05))
 out$dca <- list(thresholds = seq(0.05, 0.95, 0.05), binary = nb(db), surv_risk = ps, surv = nb(ds))
+# class-weighted elastic-net logistic (balanced weights n / (2 n_class)), and lowess
+wb <- ifelse(y == 1, n / (2 * sum(y)), n / (2 * sum(1 - y)))
+fw <- glmnet(X, y, family = "binomial", weights = wb, alpha = 1, lambda = lam, control = list(thresh = 1e-14, maxit = 1e6))
+pw <- glmnet(X, y, family = "binomial", weights = wb, alpha = 1, nlambda = 5)
+out$binomial_weighted <- list(weights = wb, lambda = lam, a0 = unname(fw$a0), beta = unname(as.matrix(fw$beta)), lambdaMax = pw$lambda[1])
+lx <- round(X[, 1], 1); ly <- y + 0.3 * X[, 2]   # rounded x creates ties
+out$lowess <- list(x = lx, y = ly, fit3 = lowess(lx, ly)$y, fit0 = lowess(lx, ly, iter = 0)$y, fit_f = lowess(lx, ly, f = 0.3, iter = 2)$y)
 writeLines(toJSON(out, digits = NA, matrix = "rowmajor", auto_unbox = TRUE), "tests/fixtures/ml-reference-r.json")
