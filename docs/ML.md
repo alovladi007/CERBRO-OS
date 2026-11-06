@@ -46,10 +46,19 @@ Preprocessing (median/mode imputation, one-hot coding, standardisation) is learn
 | Explanations | Exact path-dependent TreeSHAP (tree, forest, survival forest, boosting); exact linear SHAP for penalised models; per-row explanations | `shap.TreeExplainer` (to 1e-10) |
 | Embeddings | Seeded UMAP (as umap-learn) with trustworthiness | a/b curve vs. scipy `curve_fit`; trustworthiness vs. scikit-learn |
 
+### Shipped in the third PR (Stage 1 final items)
+| Area | Methods | Checked against |
+|---|---|---|
+| Missing data | Iterative imputation of numeric predictors (chained ridge regressions), learned inside each training fold and replayed on held-out and external rows | scikit-learn `IterativeImputer(Ridge)`, fit and transform, to 1e-10 |
+| Class imbalance | "Balanced" class weights for penalised logistic regression, trees, forests and boosting, with a calibration warning in the results, model card and TRIPOD+AI draft | R `glmnet(weights)`; scikit-learn `class_weight` / `sample_weight`; weighted TreeSHAP vs `shap` |
+| Tuning | Nested 3-fold CV over small documented grids (`TUNING_GRIDS`) for tree, forest, survival forest and boosting; boosting grids score staged predictions | Property tests (grid membership, reproducibility) |
+| Calibration | Smoothed calibration curve: lowess of outcome on predicted risk (iter = 0, as `rms::val.prob`) | R `lowess` to 1e-12 (with ties, robust iterations, narrow span) |
+| Embeddings | Exact t-SNE with scikit-learn's schedule (PCA start, early exaggeration, gains), with trustworthiness | scikit-learn joint probabilities (1e-9), KL and gradient (1e-10); final KL within scikit-learn's own float32/float64 spread |
+
+Multiple imputation with Rubin's rules is not needed for prediction performance and is not offered; single imputation inside each training fold is the leak-free equivalent for this use.
+
 ### Still to do in Stage 1
-- t-SNE; multiple imputation (MICE) inside cross-validation; class weights with a calibration warning.
-- Hyperparameter search for forests and boosting (small nested grid).
-- Calibration curves with smoothing (loess); net-benefit confidence bands.
+- Net-benefit confidence bands; calibration for survival models by smoothing (hazard regression).
 
 ## 3. Stage 2: pretrained models in the browser (shipped)
 
@@ -136,7 +145,7 @@ Preprocessing (median/mode imputation, one-hot coding, standardisation) is learn
 | # | Deliverable | Stage | Effort | Dependency |
 |---|---|---|---|---|
 | 1 | ✅ ML engine v1: elastic-net logistic and Cox, forests, RSF, boosting, CV, calibration, DeLong, PCA, k-means, model cards, TRIPOD+AI draft | 1 | Medium | Shipped (Analysis lab → Machine learning) |
-| 2 | ✅ UMAP, decision curves, time-dependent AUC, optimism correction, TreeSHAP (MICE, t-SNE next) | 1 | Medium | Shipped |
+| 2 | ✅ UMAP, t-SNE, decision curves, time-dependent AUC, optimism correction, TreeSHAP, iterative imputation, class weights, nested tuning, lowess calibration | 1 | Medium | Shipped |
 | 3 | ✅ ONNX runtime + model registry + CSP change; biomedical entity recognition | 2 | Medium | Shipped |
 | 3b | More registry models: gene/variant NER for abstracts, small radiology segmentation, pathology tile demo (licences checked); WebGPU backend | 2 | Medium | Licence review per model |
 | 4 | Sourced research assistant (non-OpenAI) | 5 | Medium | Provider choice, server proxy |

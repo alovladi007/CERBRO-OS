@@ -1,6 +1,6 @@
 import { $, $$, esc, icon, notice, empty, table, fmt, metric, logRun, download, compute, toast } from '../../ui.mjs';
 import { lab, dataBar, wireDataBar, opts, setDataObject } from '../lab.mjs';
-import { MODELS, DEFAULTS } from '../../../../lib/ml.mjs';
+import { MODELS, DEFAULTS, TUNING_GRIDS } from '../../../../lib/ml.mjs';
 import { modelCard, tripodDraft } from '../../../../lib/ml-report.mjs';
 import { parseCSV, toCSV } from '../../../../lib/csv.mjs';
 import { sha256 } from '../../../../lib/science.mjs';
@@ -55,7 +55,11 @@ function trainView(box) {
       <div class="inline small"><button class="btn small ghost" id="x-all">All</button><button class="btn small ghost" id="x-none">None</button></div></div>
     <div class="form-grid"><label class="field">Folds<select id="folds">${[3, 5, 10].map(k => `<option ${k === (s.folds ?? 5) ? 'selected' : ''}>${k}</option>`).join('')}</select></label><label class="field">Repeats<select id="repeats">${[1, 2, 3, 5].map(k => `<option ${k === (s.repeats ?? 1) ? 'selected' : ''}>${k}</option>`).join('')}</select></label>
       <label class="field">Subgroup check by<select id="sub"><option value="">None</option>${opts(groups, s.sub ?? groups.find(c => /sex|gender/i.test(c.name))?.index ?? '')}</select></label><label class="field">Leave-one-site-out by<select id="site"><option value="">None</option>${opts(groups, s.site ?? groups.find(c => /site|centre|center|hospital|country/i.test(c.name))?.index ?? '')}</select></label>
-      <label class="field">Random seed<input id="seed" type="number" step="1" value="${s.seed ?? 2026}"></label><label class="field" style="justify-content:end"><span><input type="checkbox" id="imp" ${s.imp === false ? '' : 'checked'}> Permutation importance</span></label></div>
+      <label class="field">Missing values<select id="impute"><option value="median" ${s.impute !== 'iterative' ? 'selected' : ''}>Median / most frequent</option><option value="iterative" ${s.impute === 'iterative' ? 'selected' : ''}>Iterative (chained ridge regressions)</option></select></label>
+      <label class="field">Random seed<input id="seed" type="number" step="1" value="${s.seed ?? 2026}"></label>
+      <label class="field full"><span><input type="checkbox" id="imp" ${s.imp === false ? '' : 'checked'}> Permutation importance</span></label>
+      ${TUNING_GRIDS[s.model] ? `<label class="field full"><span><input type="checkbox" id="tune" ${s.tune ? 'checked' : ''}> Tune hyperparameters (nested 3-fold CV over a small grid; slower)</span></label>` : ''}
+      ${s.task === 'binary' ? `<label class="field full"><span><input type="checkbox" id="cw" ${s.cw ? 'checked' : ''}> Balance classes with weights (distorts predicted risks; see the calibration warning)</span></label>` : ''}</div>
     <button class="btn primary" id="go" style="width:100%">${icon('sparkle', 16)} Train and cross-validate</button><div class="error" id="err" role="alert"></div></section>
     <section class="card" id="out">${ui.last && ui.lastRef === lab.data ? '' : '<p class="muted">Discrimination with confidence intervals, a calibration plot, feature importance, subgroup and site performance, and exportable model card, model file and TRIPOD+AI draft appear here.</p>'}</section></div>`;
   if (ui.last && ui.lastRef === lab.data) renderTrainResult($('#out'), ui.last);
@@ -76,15 +80,18 @@ function trainView(box) {
       $$('[data-p]', box).forEach(el => { params[el.dataset.p] = el.tagName === 'SELECT' ? el.value : Number(el.value); });
       (s.params ??= {})[s.model] = params;
       s.folds = Number($('#folds').value); s.repeats = Number($('#repeats').value); s.seed = Math.round(Number($('#seed').value) || 2026); s.imp = $('#imp').checked;
+      s.impute = $('#impute').value; s.tune = !!$('#tune')?.checked; s.cw = !!$('#cw')?.checked;
+      if (s.tune) params.tune = true;
+      if (s.cw) params.classWeight = 'balanced';
       s.sub = $('#sub').value; s.site = $('#site').value; s.horizon = $('#hz') ? $('#hz').value : '';
       const outcome = s.task === 'survival' ? { type: 'survival', time: d.headers[s.t], event: d.headers[s.e] } : { type: 'binary', column: d.headers[s.y], positive: s.pos };
       const exclude = new Set(s.task === 'survival' ? [s.t, s.e] : [s.y]);
       const features = s.xs.filter(i => !exclude.has(i)).map(i => ({ name: d.headers[i], kind: kindOf(d.profile[i]) }));
       if (!features.length) throw Error('Select at least one predictor.');
       const used = [...exclude, ...s.xs.filter(i => !exclude.has(i))], dataSha256 = await sha256(toCSV(used.map(i => d.headers[i]), d.rows.map(r => used.map(i => r[i]))));
-      const spec = { headers: d.headers, rows: d.rows, outcome, features, model: s.model, params, folds: s.folds, repeats: s.repeats, seed: s.seed, importance: s.imp,
+      const spec = { headers: d.headers, rows: d.rows, outcome, features, model: s.model, params, folds: s.folds, repeats: s.repeats, seed: s.seed, importance: s.imp, imputation: s.impute,
         subgroup: s.sub === '' ? null : d.headers[Number(s.sub)], site: s.site === '' ? null : d.headers[Number(s.site)], horizon: s.horizon === '' ? undefined : Number(s.horizon) };
-      btn.disabled = true; btn.textContent = 'Training… (runs in the background)';
+      btn.disabled = true; btn.textContent = s.tune ? 'Tuning and training… (nested CV can take a minute)' : 'Training… (runs in the background)';
       out.innerHTML = `<p class="muted">Training ${esc(MODELS[s.model].label)} with ${s.folds}-fold cross-validation${s.repeats > 1 ? ` × ${s.repeats}` : ''} on ${d.rows.length.toLocaleString()} rows…</p>`;
       const r = await compute('trainReport', spec);
       const { finalModel, ...summary } = r;
@@ -97,12 +104,21 @@ function trainView(box) {
   };
 }
 
-function calibrationPlot(bins, { title, xLabel = 'Predicted risk', yLabel = 'Observed risk' }) {
+function calibrationPlot(bins, { title, xLabel = 'Predicted risk', yLabel = 'Observed risk', smooth = null }) {
   const hi = Math.max(0.05, ...bins.flatMap(b => [b.predicted, b.upper ?? b.observed]));
   return lineChart([
     { label: 'Ideal', points: [[0, 0], [hi, hi]], dashed: true, c: 4 },
     { label: 'Model (risk groups)', points: bins.map(b => [b.predicted, b.observed]), dots: true, c: 0, band: bins.map(b => [b.predicted, b.lower ?? b.observed, b.upper ?? b.observed]) },
+    ...(smooth?.length ? [{ label: 'Smoothed (lowess)', points: smooth, c: 2 }] : []),
   ], { xLabel, yLabel, title, yZero: true });
+}
+
+function tuningSection(r) {
+  if (!r.tuning) return '';
+  const t = r.tuning, keys = Object.keys(t.best), top = t.table.slice(0, 8), chosen = r.perFold.filter(f => f.tuned);
+  return `<h3>Hyperparameter tuning <span class="muted small">(nested ${t.folds}-fold CV inside each training fold; ${esc(t.metric)})</span></h3>`
+    + `<p class="small">Final model: ${keys.map(k => `<span class="mono">${esc(k)} = ${esc(t.best[k])}</span>`).join(', ')}. Chosen per outer fold: ${chosen.map(f => keys.map(k => f.tuned[k]).join('/')).join('; ')}.</p>`
+    + table([...keys, 'Inner CV score'], top.map(x => [...keys.map(k => esc(x.params[k])), fmt(x.score)]), { numeric: [...keys.map((_, i) => i), keys.length] });
 }
 
 function utilitySection(r) {
@@ -145,18 +161,20 @@ function renderTrainResult(out, { r, run, dataName, dataSha256, spec }) {
   if (!surv && (p.calibration.slope < 0.8 || p.calibration.slope > 1.2)) warn.push(`Calibration slope ${fmt(p.calibration.slope, 2)}: predictions are ${p.calibration.slope < 1 ? 'too extreme (overfitting)' : 'too modest'}.`);
   if (surv ? r.events < 10 * r.features.length : Math.min(r.positives, r.n - r.positives) < 10 * r.features.length) warn.push(`Fewer than 10 ${surv ? 'events' : 'cases in the smaller class'} per candidate predictor: expect optimism and unstable selection.`);
   if (r.dropped) warn.push(`${r.dropped} rows without an outcome were excluded.`);
+  if (r.params.classWeight === 'balanced') warn.push('Classes were balanced with weights, so predicted probabilities are pulled towards 50% and are not calibrated risks. Use them for ranking, or recalibrate before reporting risks.');
   const charts = (surv ? '' : lineChart([{ label: 'ROC (out-of-fold)', points: r.roc, c: 0 }, { label: 'Chance', points: [[0, 0], [1, 1]], dashed: true, c: 4 }], { xLabel: '1 − specificity', yLabel: 'Sensitivity', title: 'ROC curve', yZero: true }))
-    + calibrationPlot(r.calibration, { title: surv ? `Calibration at ${r.horizon}` : 'Calibration plot', xLabel: surv ? `Predicted risk by ${fmt(r.horizon, 1)}` : 'Predicted probability', yLabel: surv ? 'Observed risk (Kaplan–Meier)' : 'Observed proportion' });
+    + calibrationPlot(r.calibration, { smooth: r.calibrationSmooth, title: surv ? `Calibration at ${r.horizon}` : 'Calibration plot', xLabel: surv ? `Predicted risk by ${fmt(r.horizon, 1)}` : 'Predicted probability', yLabel: surv ? 'Observed risk (Kaplan–Meier)' : 'Observed proportion' });
   const path = r.finalModel.model.cvPath;
   const pathChart = path ? lineChart([{ label: 'CV deviance', points: path.map(q => [q.lambda, q.cvm]), dots: true, c: 0, band: path.map(q => [q.lambda, q.cvm - q.cvsd, q.cvm + q.cvsd]) }], { logX: true, xLabel: 'λ (log scale)', yLabel: 'Cross-validated deviance', title: 'Regularisation path', markers: [{ x: r.finalModel.model.lambdaMin, label: 'min' }, { x: r.finalModel.model.lambda1se, label: '1-SE' }] }) : '';
   out.innerHTML = `<div class="eyebrow">${esc(r.label)} · ${r.folds}-fold CV${r.repeats > 1 ? ` × ${r.repeats}` : ''} · seed ${r.seed} · ${(r.ms / 1000).toFixed(1)} s</div>${head}`
     + (warn.length ? notice(warn.join(' '), 'warn') : '') + charts
     + (imp.length ? `<h3>Permutation importance <span class="muted small">(drop in ${surv ? 'C' : 'AUC'} on held-out folds)</span></h3>` + table(['Predictor', 'Drop', 'SD across folds', ''], imp.map(i => [esc(i.feature), fmt(i.drop), fmt(i.sd), `<span class="ibar" style="width:${Math.max(0, Math.min(100, i.drop / Math.max(1e-9, imp[0].drop) * 100)).toFixed(0)}%"></span>`]), { numeric: [1, 2] }) + (impZero ? `<p class="muted small">${impZero} other predictors changed the held-out ${surv ? 'C' : 'AUC'} by less than 0.001 or not at all.</p>` : '') : '')
     + (r.coefficients ? `<h3>Selected coefficients <span class="muted small">(final model, λ = ${fmt(r.finalModel.model.lambda)}, ${r.coefficients.length} of ${r.finalModel.preprocessor.columns.length} non-zero)</span></h3>` + table(['Term', 'Coefficient', surv ? 'Hazard ratio' : 'Odds ratio'], r.coefficients.map(c => [esc(c.name), fmt(c.coef), fmt(c.ratio)]), { numeric: [1, 2] }) + '<p class="muted small">Penalised coefficients are shrunk towards zero and have no valid confidence intervals; use them to describe the model, not to test hypotheses.</p>' + pathChart : '')
-    + utilitySection(r) + shapSection(r)
+    + tuningSection(r) + utilitySection(r) + shapSection(r)
     + (r.subgroups ? `<h3>Subgroups (out-of-fold)</h3>` + table(['Group', 'n', surv ? 'Events' : 'Positive', surv ? 'C' : 'AUC', 'Observed', 'Predicted', ''], r.subgroups.map(g => [esc(g.level), g.n, surv ? g.events : g.positives, fmt(surv ? g.cIndex : g.auc), pct(g.observed), pct(g.predicted), g.small ? '<span class="muted small">small</span>' : '']), { numeric: [1, 2, 3, 4, 5] }) : '')
     + (r.sites?.length ? `<h3>Leave-one-site-out validation</h3><p class="muted small">Each site is predicted by a model trained on the other sites: a rehearsal of external validation.</p>` + table(['Held-out site', 'n', surv ? 'C' : 'AUC', surv ? 'Brier' : 'Calibration slope', 'Observed', 'Predicted'], r.sites.map(x => x.error ? [esc(x.site), x.n, esc(x.error), '', '', ''] : [esc(x.site), x.n, fmt(surv ? x.cIndex : x.auc), fmt(surv ? x.brier : x.slope, surv ? 3 : 2), pct(x.observed), pct(x.predicted)]), { numeric: [1, 2, 3, 4, 5] }) : '')
     + `<details><summary class="small">Per-fold results</summary>${table(['Repeat', 'Fold', 'n', surv ? 'C' : 'AUC', 'Brier', surv ? 'IPA' : 'Slope'], r.perFold.map(f => [f.repeat + 1, f.fold + 1, f.n, fmt(surv ? f.cIndex : f.auc), fmt(f.brier), surv ? pct(f.ipa) : fmt(f.slope, 2)]), { numeric: [2, 3, 4, 5] })}</details>`
+    + `<p class="muted small">Missing values: ${r.imputation === 'iterative' ? 'iterative imputation (chained ridge regressions, as scikit-learn IterativeImputer), learned within each training fold and replayed on held-out rows' : 'training-fold medians (numeric) and most frequent levels (categorical)'}.</p>`
     + `<p class="method-note">${surv ? "Harrell's C from survival::concordance conventions; IPCW Brier score (Graf et al. 1999) with the index of prediction accuracy against the Kaplan–Meier null model; calibration compares mean predicted risk with Kaplan–Meier risk in fifths of predicted risk." : 'AUC with DeLong CI (validated against R pROC); calibration intercept (logit offset) and slope (validated against R glm); calibration plot in tenths of predicted risk with Wald 95% intervals.'} Elastic net validated against R glmnet; CART and gradient boosting against scikit-learn. Engine ${esc(r.version)}. Research use only.</p>`
     + `<div class="actions"><button class="btn small" id="dl-model">${icon('download', 14)} Model file</button><button class="btn small" id="dl-card">${icon('download', 14)} Model card</button><button class="btn small" id="dl-tripod">${icon('download', 14)} TRIPOD+AI draft</button><button class="btn small" id="dl-run">${icon('download', 14)} Run record</button><button class="btn small" id="optim">Optimism-corrected (bootstrap)</button><button class="btn small" id="to-ext">Validate on another dataset →</button><span class="muted small mono">sha256 ${run.inputSha256.slice(0, 16)}…</span></div>`;
   $('#dl-model').onclick = () => download(`cerebro-model-${r.model}.json`, JSON.stringify(r.finalModel));
@@ -183,7 +201,7 @@ function clusterView(box) {
   s.cx ??= (num.some(c => /gene|expr|_ex$|rna|protein/i.test(c.name)) ? num.filter(c => /gene|expr|_ex$|rna|protein/i.test(c.name)) : num.filter(c => !LEAKY.test(c.name))).map(c => c.index);
   box.innerHTML = `<div class="split"><section class="card"><h2>Subtype discovery</h2><p class="muted small">Standardise, project with PCA, then k-means (k-means++, 10 restarts) for each k. The silhouette width picks k. Clusters are hypotheses: check them against outcomes and in independent data.</p>
     <div class="field">Features<div class="chips">${num.map(c => `<label class="chip"><input type="checkbox" data-cx="${c.index}" ${s.cx.includes(c.index) ? 'checked' : ''}> ${esc(c.name)}</label>`).join('')}</div></div>
-    <div class="form-grid"><label class="field">Smallest k<input id="kmin" type="number" min="2" max="10" value="${s.kmin ?? 2}"></label><label class="field">Largest k<input id="kmax" type="number" min="2" max="12" value="${s.kmax ?? 6}"></label><label class="field">Random seed<input id="cseed" type="number" value="${s.cseed ?? 2026}"></label><label class="field">Map<select id="emb"><option value="umap" ${s.emb !== 'pca' ? 'selected' : ''}>UMAP (non-linear)</option><option value="pca" ${s.emb === 'pca' ? 'selected' : ''}>PCA only (faster)</option></select></label></div>
+    <div class="form-grid"><label class="field">Smallest k<input id="kmin" type="number" min="2" max="10" value="${s.kmin ?? 2}"></label><label class="field">Largest k<input id="kmax" type="number" min="2" max="12" value="${s.kmax ?? 6}"></label><label class="field">Random seed<input id="cseed" type="number" value="${s.cseed ?? 2026}"></label><label class="field">Map<select id="emb"><option value="umap" ${s.emb !== 'pca' ? 'selected' : ''}>UMAP (non-linear)</option><option value="tsne" ${s.emb === 'tsne' ? 'selected' : ''}>t-SNE (exact; up to 2,000 rows)</option><option value="pca" ${s.emb === 'pca' ? 'selected' : ''}>PCA only (faster)</option></select></label></div>
     <button class="btn primary" id="go" style="width:100%">Find clusters</button><div class="error" id="err" role="alert"></div></section>
     <section class="card" id="out"><p class="muted">A principal-component map coloured by cluster, the silhouette for each k and the cluster profiles appear here. You can add the cluster labels to the dataset, then compare survival by cluster in the Survival or Oncology tab.</p></section></div>`;
   $('#go').onclick = async () => {
@@ -200,6 +218,8 @@ function clusterView(box) {
       out.innerHTML = `<div class="eyebrow">k-means on ${r.columns.length} standardised features · ${r.n} rows</div><div class="metrics">${metric('Clusters (best k)', r.best.k)}${metric('Silhouette', fmt(r.best.silhouette), r.best.silhouette > 0.5 ? 'strong structure' : r.best.silhouette > 0.25 ? 'moderate structure' : 'weak structure')}${metric('PC1 + PC2 variance', pct(r.pca.explained[0] + (r.pca.explained[1] || 0)))}</div>`
         + (r.umap ? groupScatter(r.umap.embedding.map((e, i) => [e[0], e[1], r.best.labels[i]]), { xLabel: 'UMAP 1', yLabel: 'UMAP 2', title: 'UMAP map coloured by cluster', labels: r.best.profile.map(p => `Cluster ${p.cluster} (n = ${p.n})`) })
           + `<p class="muted small">UMAP with ${r.umap.nNeighbors} neighbours, min_dist ${r.umap.minDist}, ${r.umap.epochs} epochs, seed ${s.cseed}.${Number.isFinite(r.umap.trust) ? ` Trustworthiness (k = 10): UMAP ${fmt(r.umap.trust)}, PCA ${fmt(r.pca.trust)}.` : ''} Distances between far-apart clusters on a UMAP map are not meaningful.</p>` : '')
+        + (r.tsne ? groupScatter(r.tsne.embedding.map((e, i) => [e[0], e[1], r.best.labels[i]]), { xLabel: 't-SNE 1', yLabel: 't-SNE 2', title: 't-SNE map coloured by cluster', labels: r.best.profile.map(p => `Cluster ${p.cluster} (n = ${p.n})`) })
+          + `<p class="muted small">Exact t-SNE, perplexity ${r.tsne.perplexity}, ${r.tsne.iterations + 1} iterations, final KL divergence ${fmt(r.tsne.kl)} (as scikit-learn; PCA start).${Number.isFinite(r.tsne.trust) ? ` Trustworthiness (k = 10): t-SNE ${fmt(r.tsne.trust)}, PCA ${fmt(r.pca.trust)}.` : ''} Cluster sizes and gaps on a t-SNE map are not meaningful.</p>` : '')
         + groupScatter(r.pca.scores.map((sc, i) => [sc[0], sc[1] ?? 0, r.best.labels[i]]), { xLabel: `PC1 (${pct(r.pca.explained[0])})`, yLabel: `PC2 (${pct(r.pca.explained[1])})`, title: 'Principal components coloured by cluster', labels: r.best.profile.map(p => `Cluster ${p.cluster} (n = ${p.n})`) })
         + barChart(r.runs.map(x => ({ label: `k = ${x.k}`, value: Math.max(0, x.silhouette), text: fmt(x.silhouette, 2) })), { yLabel: 'Mean silhouette', title: 'Silhouette by number of clusters' })
         + '<h3>Cluster profiles <span class="muted small">(largest standardised mean differences)</span></h3>' + table(['Cluster', 'n', 'Distinguishing features (z)'], top, { numeric: [1] })
@@ -251,7 +271,7 @@ function externalView(box) {
           ? `<div class="metrics">${metric("Harrell's C", fmt(m.cIndex), `${m.n} patients, ${m.events} events`)}${metric(`Brier at ${fmt(model.horizon, 1)}`, fmt(m.brier), `IPA ${pct(m.ipa)}`)}${metric('Predicted vs observed risk', `${pct(m.predictedRisk)} / ${pct(m.observedRisk)}`)}</div>`
           : `<div class="metrics">${metric('AUC', fmt(m.auc), `DeLong 95% CI ${ci(m.lower, m.upper)}`)}${metric('Calibration', `slope ${fmt(m.calibration.slope, 2)}`, `intercept ${fmt(m.calibration.intercept, 2)}`)}${metric('Brier', fmt(m.brier), `${m.n} rows, ${m.positives} positive`)}${metric('Mean predicted vs observed', `${pct(m.meanPredicted)} / ${pct(m.observed)}`)}</div>`)
           + (!surv ? lineChart([{ label: 'ROC', points: r.roc, c: 0 }, { label: 'Chance', points: [[0, 0], [1, 1]], dashed: true, c: 4 }], { xLabel: '1 − specificity', yLabel: 'Sensitivity', title: 'ROC curve (external)', yZero: true }) : '')
-          + calibrationPlot(r.calibration, { title: 'Calibration (external)', xLabel: 'Predicted risk', yLabel: 'Observed risk' })
+          + calibrationPlot(r.calibration, { smooth: r.calibrationSmooth, title: 'Calibration (external)', xLabel: 'Predicted risk', yLabel: 'Observed risk' })
           : notice('The outcome columns are not in this dataset, so only predictions are available.'))
         + (r.imputed || r.unseenLevels ? notice(`${r.imputed} missing values were imputed with training medians or modes, and ${r.unseenLevels} unseen category levels were mapped to the reference level.`, 'warn') : '')
         + `<div class="actions"><button class="btn small" id="dl-pred">${icon('download', 14)} Predictions (CSV)</button><span class="muted small mono">sha256 ${run.inputSha256.slice(0, 16)}…</span></div>`;

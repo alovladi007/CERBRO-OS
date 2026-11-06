@@ -9,7 +9,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 
 import { createServer, negotiateEncoding, resolveRequestPath, RateLimiter } from '../server/server.mjs';
 import { parseIP, parseCIDR, ipInCIDR, classifyRequest, loadRanges, refreshRanges, matchRange } from '../server/bot-policy.mjs';
-import { contentSecurityPolicy } from '../web/app/js/policy.mjs';
+import { contentSecurityPolicy, CONNECT_ALLOWLIST } from '../web/app/js/policy.mjs';
 
 const GPTBOT_UA = 'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; GPTBot/1.2; +https://openai.com/gptbot)';
 const CHROME_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36';
@@ -231,7 +231,7 @@ describe('server', () => {
     assert.equal(doc.openai.ipRanges.bots.gptbot.count, snap.bots.gptbot.prefixes.length);
     assert.equal(doc.openai.ipRanges.bots.gptbot.creationTime, snap.bots.gptbot.creationTime);
     assert.equal(doc.openai.ipRanges.snapshotTakenAt, snap.snapshotTakenAt);
-    assert.equal(doc.egressAllowlist.length, 5);
+    assert.deepEqual(doc.egressAllowlist, [...CONNECT_ALLOWLIST]);
   });
 
   test('unknown paths get the custom 404 page', async () => {

@@ -8,6 +8,10 @@ export const CONNECT_ALLOWLIST = Object.freeze([
   'https://clinicaltrials.gov',         // ClinicalTrials.gov API v2
   'https://api.dandiarchive.org',       // DANDI Archive API
   'https://openneuro.org',              // OpenNeuro GraphQL
+  'https://api.platform.opentargets.org', // Open Targets Platform GraphQL (target–disease evidence, drugs)
+  'https://civicdb.org',                // CIViC GraphQL (clinical variant evidence, CC0)
+  'https://api.gdc.cancer.gov',         // NCI Genomic Data Commons API (open-access tier)
+  'https://www.cbioportal.org',         // cBioPortal REST API (public studies)
 ]);
 
 /** OpenAI / ChatGPT hosts the platform must never contact, embed, or be embedded by. */

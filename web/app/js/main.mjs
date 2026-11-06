@@ -6,6 +6,7 @@ export const ROUTES = [
   { id: 'overview', label: 'Overview', icon: 'home', group: 'Workspace', load: () => import('./views/overview.mjs') },
   { id: 'evidence', label: 'Evidence search', icon: 'search', group: 'Evidence', load: () => import('./views/evidence.mjs') },
   { id: 'screening', label: 'Screening', icon: 'filter', group: 'Evidence', count: p => Object.keys(p.screening).length ? `${Object.keys(p.screening).length}/${p.papers.length}` : '' , load: () => import('./views/screening.mjs') },
+  { id: 'genes', label: 'Gene dossier', icon: 'dna', group: 'Evidence', load: () => import('./views/genes.mjs') },
   { id: 'datasets', label: 'Dataset discovery', icon: 'database', group: 'Evidence', load: () => import('./views/datasets.mjs') },
   { id: 'lab', label: 'Analysis lab', icon: 'flask', group: 'Analyze', load: () => import('./views/lab.mjs') },
   { id: 'models', label: 'Pretrained models', icon: 'cube', group: 'Analyze', load: () => import('./views/models.mjs') },

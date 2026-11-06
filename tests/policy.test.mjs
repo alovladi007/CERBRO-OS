@@ -12,8 +12,12 @@ import { loadRanges } from '../server/bot-policy.mjs';
 
 const ORIGIN = 'https://cerebro-os.example';
 
-test('egressDecision allows the five research origins and same-origin', () => {
-  assert.equal(CONNECT_ALLOWLIST.length, 5);
+test('egressDecision allows exactly the research origins and same-origin', () => {
+  // Any change to this list is a reviewed policy edit (docs/ONCOLOGY.md §1): update it deliberately.
+  assert.deepEqual([...CONNECT_ALLOWLIST], [
+    'https://www.ebi.ac.uk', 'https://eutils.ncbi.nlm.nih.gov', 'https://clinicaltrials.gov', 'https://api.dandiarchive.org', 'https://openneuro.org',
+    'https://api.platform.opentargets.org', 'https://civicdb.org', 'https://api.gdc.cancer.gov', 'https://www.cbioportal.org',
+  ]);
   for (const o of CONNECT_ALLOWLIST) {
     assert.equal(egressDecision(`${o}/some/path?q=1`, ORIGIN).allowed, true, o);
   }

@@ -345,3 +345,4 @@ mark.ent small { font-family: var(--font-mono); font-size: 9.5px; color: var(--m
 .file-list { list-style: none; padding: 0; margin: 0 0 12px; }
 .file-list li { padding: 6px 0; border-bottom: 1px solid var(--line); }
 .file-list .mono { font-size: 10.5px; color: var(--muted); overflow-wrap: anywhere; }
+.grid2.dossier > .wide { grid-column: 1 / -1; }

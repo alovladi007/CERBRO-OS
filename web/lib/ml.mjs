@@ -6,6 +6,7 @@
 // Every model is a plain JSON object, so it can be exported, re-applied and audited.
 import { kaplanMeier } from './stats.mjs';
 import { concordance } from './oncology.mjs';
+import { fitIterativeImputer, applyIterativeImputer } from './ml-impute.mjs';
 
 export const ML_VERSION = 'cerebro-ml-1.0';
 const Z975 = 1.959963984540054;
@@ -32,10 +33,11 @@ const sdOf = a => { const m = meanOf(a); return a.length > 1 ? Math.sqrt(a.reduc
 const isMissing = v => v === '' || v == null || (typeof v === 'number' && !Number.isFinite(v)) || /^(na|n\/a|nan|null|none|\.)$/i.test(String(v).trim());
 
 /**
- * features: [{ name, kind: 'numeric' | 'categorical' }]. Numeric: median imputation.
+ * features: [{ name, kind: 'numeric' | 'categorical' }]. Numeric: median imputation, or with
+ * imputation = 'iterative' chained ridge regressions on all other encoded columns (ml-impute.mjs).
  * Categorical: mode imputation, dummy-coded against the most frequent level (ties: alphabetical).
  */
-export function fitPreprocessor(headers, rows, features) {
+export function fitPreprocessor(headers, rows, features, { imputation = 'median' } = {}) {
   const spec = features.map(f => {
     const idx = headers.indexOf(f.name);
     if (idx < 0) throw Error(`Column “${f.name}” not found.`);
@@ -53,11 +55,19 @@ export function fitPreprocessor(headers, rows, features) {
     return { name: f.name, kind: 'categorical', reference: levels[0], levels: levels.slice(1).sort(), mode: levels[0] };
   });
   const columns = spec.flatMap(s => (s.kind === 'numeric' ? [s.name] : s.levels.map(l => `${s.name} = ${l}`)));
-  return { spec, columns };
+  const pre = { spec, columns, imputation };
+  if (imputation === 'iterative') pre.imputer = fitIterativeImputer(encode(pre, headers, rows, true).X).imputer;
+  return pre;
 }
 
 /** Encode rows with a fitted preprocessor. Returns { X: number[][], imputed, unseen }. */
 export function transform(pre, headers, rows) {
+  if (!pre.imputer) return encode(pre, headers, rows, false);
+  const e = encode(pre, headers, rows, true);
+  return { ...e, X: applyIterativeImputer(pre.imputer, e.X) };
+}
+/** Encoding with categorical imputation; missing numerics become NaN (keepMissing) or the training median. */
+function encode(pre, headers, rows, keepMissing) {
   const idx = pre.spec.map(s => { const i = headers.indexOf(s.name); if (i < 0) throw Error(`Column “${s.name}” is missing from this dataset.`); return i; });
   let imputed = 0, unseen = 0;
   const X = rows.map(r => {
@@ -66,7 +76,7 @@ export function transform(pre, headers, rows) {
       const v = r[idx[k]];
       if (s.kind === 'numeric') {
         const x = isMissing(v) ? NaN : Number(v);
-        if (!Number.isFinite(x)) { imputed++; out.push(s.median); } else out.push(x);
+        if (!Number.isFinite(x)) { imputed++; out.push(keepMissing ? NaN : s.median); } else out.push(x);
       } else {
         let lv = isMissing(v) ? (imputed++, s.mode) : String(v);
         if (lv !== s.reference && !s.levels.includes(lv)) { unseen++; lv = s.reference; }
@@ -100,11 +110,12 @@ export function extractOutcome(headers, rows, outcome) {
 }
 
 // ---------- elastic net (glmnet-style coordinate descent) ----------
-function standardize(X) {
+function standardize(X, w = null) {
   const n = X.length, p = X[0]?.length || 0, mean = new Array(p).fill(0), sd = new Array(p).fill(0), cols = [];
+  const W = w ? w.reduce((a, b) => a + b, 0) : n, wt = w ? i => w[i] : () => 1;
   for (let j = 0; j < p; j++) {
-    let m = 0; for (let i = 0; i < n; i++) m += X[i][j]; m /= n;
-    let v = 0; for (let i = 0; i < n; i++) v += (X[i][j] - m) ** 2; v = Math.sqrt(v / n); // glmnet: 1/n
+    let m = 0; for (let i = 0; i < n; i++) m += wt(i) * X[i][j]; m /= W;
+    let v = 0; for (let i = 0; i < n; i++) v += wt(i) * (X[i][j] - m) ** 2; v = Math.sqrt(v / W); // glmnet: weighted, 1/sum(w)
     mean[j] = m; sd[j] = v;
     const c = new Float64Array(n); if (v > 0) for (let i = 0; i < n; i++) c[i] = (X[i][j] - m) / v;
     cols.push(c);
@@ -181,18 +192,20 @@ const penalty = (beta, alpha) => beta.reduce((s, b) => s + (1 - alpha) / 2 * b *
  * family 'cox': {time, status}; objective -(1/n) Breslow partial loglik + lambda * P(beta) (as glmnet).
  * Returns per-lambda coefficients on the original scale.
  */
-export function elasticNet(X, outcome, { family = 'binomial', alpha = 1, lambda = null, nlambda = 50, lambdaMinRatio = null, maxIter = 200 } = {}) {
+export function elasticNet(X, outcome, { family = 'binomial', alpha = 1, lambda = null, nlambda = 50, lambdaMinRatio = null, maxIter = 200, weights = null } = {}) {
   const n = X.length;
   if (!n) throw Error('No rows to fit.');
-  const { mean, sd, cols } = standardize(X), p = cols.length;
+  if (weights && family !== 'binomial') throw Error('Observation weights are supported for the binomial family only.');
+  const ow = weights ? (W => weights.map(v => (v * n) / W))(weights.reduce((a, b) => a + b, 0)) : null; // glmnet rescales to sum n
+  const { mean, sd, cols } = standardize(X, ow), p = cols.length, wo = ow ? i => ow[i] : () => 1;
   const aEff = Math.max(alpha, 1e-3);
   let lams = lambda ? [].concat(lambda).slice().sort((a, b) => b - a) : null;
   const path = [];
   if (family === 'binomial') {
     const y = outcome;
-    const ybar = meanOf(y);
+    let ybar = 0; for (let i = 0; i < n; i++) ybar += wo(i) * y[i]; ybar /= n;
     if (!lams) {
-      let lmax = 0; for (let j = 0; j < p; j++) { let s = 0; for (let i = 0; i < n; i++) s += cols[j][i] * (y[i] - ybar); lmax = Math.max(lmax, Math.abs(s) / n); }
+      let lmax = 0; for (let j = 0; j < p; j++) { let s = 0; for (let i = 0; i < n; i++) s += wo(i) * cols[j][i] * (y[i] - ybar); lmax = Math.max(lmax, Math.abs(s) / n); }
       lams = lambdaPath(lmax / aEff, n, p, nlambda, lambdaMinRatio);
     }
     const beta = new Float64Array(p), state = { b0: logit(Math.min(1 - 1e-9, Math.max(1e-9, ybar))) };
@@ -200,7 +213,7 @@ export function elasticNet(X, outcome, { family = 'binomial', alpha = 1, lambda 
       for (let it = 0; it < maxIter; it++) {
         const eta = new Float64Array(n), w = new Float64Array(n), r = new Float64Array(n);
         for (let i = 0; i < n; i++) { let e = state.b0; for (let j = 0; j < p; j++) if (beta[j]) e += cols[j][i] * beta[j]; eta[i] = e; }
-        for (let i = 0; i < n; i++) { const pr = sigmoid(eta[i]); w[i] = Math.max(pr * (1 - pr), 1e-5); r[i] = (y[i] - pr) / w[i]; }
+        for (let i = 0; i < n; i++) { const pr = sigmoid(eta[i]), v = Math.max(pr * (1 - pr), 1e-5); w[i] = wo(i) * v; r[i] = (y[i] - pr) / v; }
         const old = Float64Array.from(beta), oldB0 = state.b0;
         cdWLS(cols, w, r, beta, state, lam, alpha, true, n);
         let maxD = (state.b0 - oldB0) ** 2; for (let j = 0; j < p; j++) maxD = Math.max(maxD, (beta[j] - old[j]) ** 2);
@@ -258,20 +271,21 @@ function breslowBaseline(time, status, lp) {
 const stepAt = (steps, t) => { let lo = 0, hi = steps.length - 1, v = 0; while (lo <= hi) { const m = (lo + hi) >> 1; if (steps[m][0] <= t) { v = steps[m][1]; lo = m + 1; } else hi = m - 1; } return v; };
 
 // ---------- deviance for lambda selection ----------
-function binomDev(y, p) { let s = 0; for (let i = 0; i < y.length; i++) { const q = Math.min(1 - 1e-15, Math.max(1e-15, p[i])); s -= 2 * (y[i] * Math.log(q) + (1 - y[i]) * Math.log(1 - q)); } return s / y.length; }
+function binomDev(y, p, w = null) { let s = 0, W = 0; for (let i = 0; i < y.length; i++) { const q = Math.min(1 - 1e-15, Math.max(1e-15, p[i])), wi = w ? w[i] : 1; s -= 2 * wi * (y[i] * Math.log(q) + (1 - y[i]) * Math.log(1 - q)); W += wi; } return s / W; }
 const linPred = (X, b0, beta) => X.map(x => x.reduce((s, v, j) => s + v * beta[j], b0));
 
 /** cv.glmnet-style lambda selection. Cox uses the grouped partial-likelihood deviance (Verweij & van Houwelingen). */
-function cvLambda(X, out, family, alpha, folds, seed, nlambda) {
-  const n = X.length, full = elasticNet(X, out, { family, alpha, nlambda }), lams = full.path.map(s => s.lambda);
+function cvLambda(X, out, family, alpha, folds, seed, nlambda, weights = null) {
+  const n = X.length, full = elasticNet(X, out, { family, alpha, nlambda, weights }), lams = full.path.map(s => s.lambda);
   const fid = stratifiedFolds(family === 'binomial' ? out : out.status, folds, seed);
   const cvm = lams.map(() => []);
   for (let f = 0; f < folds; f++) {
     const tr = [], te = [];
     for (let i = 0; i < n; i++) (fid[i] === f ? te : tr).push(i);
     if (family === 'binomial') {
-      const fit = elasticNet(tr.map(i => X[i]), tr.map(i => out[i]), { family, alpha, lambda: lams });
-      fit.path.forEach((s, k) => { const pr = linPred(te.map(i => X[i]), s.b0, s.beta).map(sigmoid); cvm[k].push({ v: binomDev(te.map(i => out[i]), pr), w: te.length }); });
+      const fit = elasticNet(tr.map(i => X[i]), tr.map(i => out[i]), { family, alpha, lambda: lams, weights: weights && tr.map(i => weights[i]) });
+      const tw = weights && te.map(i => weights[i]), W = tw ? tw.reduce((a, b) => a + b, 0) : te.length;
+      fit.path.forEach((s, k) => { const pr = linPred(te.map(i => X[i]), s.b0, s.beta).map(sigmoid); cvm[k].push({ v: binomDev(te.map(i => out[i]), pr, tw), w: W }); });
     } else {
       const fit = elasticNet(tr.map(i => X[i]), { time: tr.map(i => out.time[i]), status: tr.map(i => out.status[i]) }, { family, alpha, lambda: lams });
       const ordAll = descOrder(out.time), trT = tr.map(i => out.time[i]), trS = tr.map(i => out.status[i]), ordTr = descOrder(trT);
@@ -312,14 +326,17 @@ function growTree(X, target, idx, opt, r, depth = 0) {
   const L = [], R = [];
   for (const i of idx) (X[i][best.j] <= best.thr ? L : R).push(i);
   if (L.length < minLeaf || R.length < minLeaf) return node.leaf;
-  return { f: best.j, t: best.thr, g: best.score, n: m, l: growTree(X, target, L, opt, r, depth + 1), r: growTree(X, target, R, opt, r, depth + 1) };
+  const node2 = { f: best.j, t: best.thr, g: best.score, n: m, l: growTree(X, target, L, opt, r, depth + 1), r: growTree(X, target, R, opt, r, depth + 1) };
+  if (opt.w) node2.c = idx.reduce((s, i) => s + opt.w[i], 0); // weighted cover (TreeSHAP uses it)
+  return node2;
 }
 function leafValue(target, idx, opt) {
-  if (opt.kind === 'gini') { let s = 0; for (const i of idx) s += target[i]; const p = s / idx.length; return { leaf: { v: p, n: idx.length }, pure: p === 0 || p === 1 }; }
+  const w = opt.w, cover = w ? idx.reduce((s, i) => s + w[i], 0) : idx.length, withC = leaf => (w ? { ...leaf, c: cover } : leaf);
+  if (opt.kind === 'gini') { let s = 0; for (const i of idx) s += w ? w[i] * target[i] : target[i]; const p = s / cover; return { leaf: withC({ v: p, n: idx.length }), pure: p === 0 || p === 1 }; }
   if (opt.kind === 'mse') {
-    let s = 0, ss = 0; for (const i of idx) { s += target.g[i]; ss += target.g[i] ** 2; }
-    const v = opt.leaf ? opt.leaf(idx) : s / idx.length, varr = ss / idx.length - (s / idx.length) ** 2;
-    return { leaf: { v, n: idx.length }, pure: varr <= 1e-14 };
+    let s = 0, ss = 0; for (const i of idx) { const wi = w ? w[i] : 1; s += wi * target.g[i]; ss += wi * target.g[i] ** 2; }
+    const v = opt.leaf ? opt.leaf(idx) : s / cover, varr = ss / cover - (s / cover) ** 2;
+    return { leaf: withC({ v, n: idx.length }), pure: varr <= 1e-14 };
   }
   // survival: Nelson–Aalen cumulative hazard on the shared grid
   const { time, status, grid } = target, ev = idx.reduce((s, i) => s + status[i], 0);
@@ -328,20 +345,20 @@ function leafValue(target, idx, opt) {
 function bestImpuritySplit(X, target, idx, j, opt) {
   const sorted = idx.slice().sort((a, b) => X[a][j] - X[b][j]), m = sorted.length, minLeaf = opt.minLeaf || 1;
   if (X[sorted[0]][j] === X[sorted[m - 1]][j]) return null;
-  const val = opt.kind === 'gini' ? i => target[i] : i => target.g[i];
-  let totS = 0, totSS = 0; for (const i of sorted) { const v = val(i); totS += v; totSS += v * v; }
-  let lS = 0, best = null;
-  const parentImp = opt.kind === 'gini' ? (q => 2 * q * (1 - q))(totS / m) : totSS / m - (totS / m) ** 2;
+  const val = opt.kind === 'gini' ? i => target[i] : i => target.g[i], wt = opt.w ? i => opt.w[i] : () => 1;
+  let totS = 0, totSS = 0, W = 0; for (const i of sorted) { const v = val(i), wi = wt(i); totS += wi * v; totSS += wi * v * v; W += wi; }
+  let lS = 0, lW = 0, best = null;
+  const parentImp = opt.kind === 'gini' ? (q => 2 * q * (1 - q))(totS / W) : totSS / W - (totS / W) ** 2;
   for (let k = 0; k < m - 1; k++) {
-    lS += val(sorted[k]);
-    const nl = k + 1, nr = m - nl;
-    if (X[sorted[k + 1]][j] <= X[sorted[k]][j] + 1e-7 * Math.max(1, Math.abs(X[sorted[k]][j])) || nl < minLeaf || nr < minLeaf) continue;
+    const wi = wt(sorted[k]); lS += wi * val(sorted[k]); lW += wi;
+    const nl = k + 1, nr = m - nl, rW = W - lW;
+    if (X[sorted[k + 1]][j] <= X[sorted[k]][j] + 1e-7 * Math.max(1, Math.abs(X[sorted[k]][j])) || nl < minLeaf || nr < minLeaf || lW <= 0 || rW <= 0) continue;
     let score;
-    if (opt.kind === 'gini') { const pl = lS / nl, pr = (totS - lS) / nr; score = parentImp - (nl / m) * 2 * pl * (1 - pl) - (nr / m) * 2 * pr * (1 - pr); }
-    else { const ml = lS / nl, mr = (totS - lS) / nr; score = nl * nr / m * (ml - mr) ** 2 / m; } // = MSE decrease (Friedman's criterion has the same ranking)
+    if (opt.kind === 'gini') { const pl = lS / lW, pr = (totS - lS) / rW; score = parentImp - (lW / W) * 2 * pl * (1 - pl) - (rW / W) * 2 * pr * (1 - pr); }
+    else { const ml = lS / lW, mr = (totS - lS) / rW; score = lW * rW / W * (ml - mr) ** 2 / W; } // = MSE decrease (Friedman's criterion has the same ranking)
     if (!best || score > best.score) best = { score, thr: X[sorted[k]][j] / 2 + X[sorted[k + 1]][j] / 2 };
   }
-  if (best) best.score *= m; // weighted impurity decrease, comparable across nodes
+  if (best) best.score *= W; // weighted impurity decrease, comparable across nodes
   return best;
 }
 function bestLogrankSplit(X, target, idx, j, opt, r) {
@@ -388,19 +405,19 @@ function leafOf(tree, x) { let nd = tree; while (nd.f !== undefined) nd = x[nd.f
 function treeImportance(tree, acc) { if (tree.f === undefined) return; acc[tree.f] += tree.g; treeImportance(tree.l, acc); treeImportance(tree.r, acc); }
 
 /** Single CART classification tree (as scikit-learn DecisionTreeClassifier, gini). */
-export function decisionTree(X, y, { maxDepth = 3, minLeaf = 1, seed = 1 } = {}) {
-  const tree = growTree(X, y, X.map((_, i) => i), { kind: 'gini', maxDepth, minLeaf, shuffleFeatures: true }, rng(seed));
+export function decisionTree(X, y, { maxDepth = 3, minLeaf = 1, seed = 1, weights = null } = {}) {
+  const tree = growTree(X, y, X.map((_, i) => i), { kind: 'gini', maxDepth, minLeaf, shuffleFeatures: true, w: weights }, rng(seed));
   return { type: 'tree', tree };
 }
 
 /** Random forest classifier: bootstrap, mtry = floor(sqrt(p)) features per split, out-of-bag predictions. */
-export function randomForest(X, y, { nTrees = 300, mtry = null, minLeaf = 1, maxDepth = Infinity, seed = 1 } = {}) {
+export function randomForest(X, y, { nTrees = 300, mtry = null, minLeaf = 1, maxDepth = Infinity, seed = 1, weights = null } = {}) {
   const n = X.length, p = X[0].length, r = rng(seed), m = mtry || Math.max(1, Math.floor(Math.sqrt(p)));
   const trees = [], oobSum = new Float64Array(n), oobN = new Int32Array(n);
   for (let b = 0; b < nTrees; b++) {
     const inBag = new Uint8Array(n), idx = [];
     for (let i = 0; i < n; i++) { const k = randInt(r, n); idx.push(k); inBag[k] = 1; }
-    const tree = growTree(X, y, idx, { kind: 'gini', maxDepth, minLeaf, mtry: m }, r);
+    const tree = growTree(X, y, idx, { kind: 'gini', maxDepth, minLeaf, mtry: m, w: weights }, r);
     trees.push(tree);
     for (let i = 0; i < n; i++) if (!inBag[i]) { oobSum[i] += leafOf(tree, X[i]).v; oobN[i]++; }
   }
@@ -429,10 +446,13 @@ const roundTree = t => (t.f === undefined ? (t.chf ? { ...t, chf: t.chf.map(v =>
  * loss 'logistic': as scikit-learn GradientBoostingClassifier (log-odds prior, Newton leaf values).
  * loss 'cox': Breslow partial-likelihood gradient, Newton leaf values (as R gbm distribution = "coxph").
  */
-export function gradientBoosting(X, outcome, { loss = 'logistic', nTrees = 100, learningRate = 0.1, maxDepth = 3, minLeaf = 1, subsample = 1, seed = 1 } = {}) {
-  const n = X.length, r = rng(seed), trees = [];
+export function gradientBoosting(X, outcome, { loss = 'logistic', nTrees = 100, learningRate = 0.1, maxDepth = 3, minLeaf = 1, subsample = 1, seed = 1, weights = null } = {}) {
+  const n = X.length, r = rng(seed), trees = [], w = weights;
   let f0 = 0, F;
-  if (loss === 'logistic') { const pm = meanOf(outcome); f0 = Math.log(pm / (1 - pm)); }
+  if (loss === 'logistic') {
+    let sw = 0, swy = 0; for (let i = 0; i < n; i++) { const wi = w ? w[i] : 1; sw += wi; swy += wi * outcome[i]; }
+    const pm = swy / sw; f0 = Math.log(pm / (1 - pm)); // (weighted) prior log-odds, as scikit-learn
+  }
   F = new Float64Array(n).fill(f0);
   const order = loss === 'cox' ? descOrder(outcome.time) : null;
   for (let b = 0; b < nTrees; b++) {
@@ -441,8 +461,8 @@ export function gradientBoosting(X, outcome, { loss = 'logistic', nTrees = 100, 
     else ({ g, h } = coxGradHess(order, outcome.time, outcome.status, Array.from(F)));
     let idx = [...Array(n).keys()];
     if (subsample < 1) idx = shuffle(idx, r).slice(0, Math.max(2, Math.round(subsample * n))).sort((a, b) => a - b);
-    const leaf = ids => { let sg = 0, sh = 0; for (const i of ids) { sg += g[i]; sh += h[i]; } return Math.abs(sh) < 1e-150 ? 0 : sg / sh; };
-    const tree = growTree(X, { g }, idx, { kind: 'mse', maxDepth, minLeaf, shuffleFeatures: true, leaf }, r);
+    const leaf = ids => { let sg = 0, sh = 0; for (const i of ids) { const wi = w ? w[i] : 1; sg += wi * g[i]; sh += wi * h[i]; } return Math.abs(sh) < 1e-150 ? 0 : sg / sh; };
+    const tree = growTree(X, { g }, idx, { kind: 'mse', maxDepth, minLeaf, shuffleFeatures: true, leaf, w }, r);
     trees.push(tree);
     for (let i = 0; i < n; i++) F[i] += learningRate * leafOf(tree, X[i]).v;
   }
@@ -470,22 +490,75 @@ export const DEFAULTS = {
   gbm_cox: { nTrees: 100, learningRate: 0.05, maxDepth: 2, minLeaf: 10, subsample: 0.8 },
 };
 
+/** "balanced" class weights, as scikit-learn: n / (2 · n_class). */
+export function balancedWeights(y) { const n = y.length, pos = y.reduce((a, b) => a + b, 0); return y.map(v => n / (2 * (v ? pos : n - pos))); }
+
+/** Small, documented tuning grids for nested cross-validation (docs/ML.md). */
+export const TUNING_GRIDS = {
+  tree: p => ({ maxDepth: [2, 3, 4, 6], minLeaf: [5, 10, 20] }),
+  rf: p => ({ mtry: [...new Set([Math.max(1, Math.round(Math.sqrt(p) / 2)), Math.max(1, Math.floor(Math.sqrt(p))), Math.min(p, 2 * Math.floor(Math.sqrt(p)))])], minLeaf: [1, 5, 10] }),
+  gbm: () => ({ maxDepth: [1, 2, 3], learningRate: [0.05, 0.1], nTrees: [50, 100, 200] }),
+  rsf: p => ({ mtry: [...new Set([Math.max(1, Math.ceil(Math.sqrt(p) / 2)), Math.max(1, Math.ceil(Math.sqrt(p))), Math.min(p, 2 * Math.ceil(Math.sqrt(p)))])], minLeaf: [5, 15, 30] }),
+  gbm_cox: () => ({ maxDepth: [1, 2, 3], learningRate: [0.05, 0.1], nTrees: [50, 100, 200] }),
+};
+const gridCombos = g => Object.entries(g).reduce((acc, [k, vs]) => acc.flatMap(a => vs.map(v => ({ ...a, [k]: v }))), [{}]);
+
+/**
+ * Nested tuning: inner stratified k-fold CV over a small grid on the training rows only.
+ * Binary models are scored by held-out log-loss, survival models by Harrell's C.
+ * Boosting grids reuse one fit per (depth, rate) and score staged predictions.
+ */
+function tuneModel(type, X, out, params, seed) {
+  const surv = MODELS[type].task === 'survival', n = X.length, folds = 3;
+  const strata = surv ? out.status : out, fid = stratifiedFolds(strata, folds, seed + 211);
+  const grid = TUNING_GRIDS[type](X[0].length), base = { ...DEFAULTS[type], ...params, tune: false };
+  if (['rf', 'rsf'].includes(type)) base.nTrees = Math.min(base.nTrees, 100); // tuning uses up to 100 trees; the final model uses the requested number
+  const boost = type === 'gbm' || type === 'gbm_cox', maxTrees = boost ? Math.max(...grid.nTrees) : null;
+  const fitGrid = boost ? gridCombos({ maxDepth: grid.maxDepth, learningRate: grid.learningRate }) : gridCombos(grid);
+  const results = new Map();
+  for (let f = 0; f < folds; f++) {
+    const tr = [], te = [];
+    for (let i = 0; i < n; i++) (fid[i] === f ? te : tr).push(i);
+    const sub = idx => (surv ? { time: idx.map(i => out.time[i]), status: idx.map(i => out.status[i]) } : idx.map(i => out[i]));
+    const Xtr = tr.map(i => X[i]), Xte = te.map(i => X[i]), yte = sub(te);
+    for (const combo of fitGrid) {
+      const m = fitModel(type, Xtr, sub(tr), { ...base, ...combo, ...(boost ? { nTrees: maxTrees } : {}) }, seed + f);
+      const stages = boost ? grid.nTrees : [null];
+      for (const k of stages) {
+        const mm = k ? { ...m, trees: m.trees.slice(0, k) } : m, key = JSON.stringify(k ? { ...combo, nTrees: k } : combo);
+        const pr = predictModel(mm, Xte);
+        const score = surv ? concordance(yte.time, yte.status, pr.risk) : binomDev(yte, pr.prob) / 2;
+        if (!results.has(key)) results.set(key, []);
+        results.get(key).push(score);
+      }
+    }
+  }
+  const table = [...results.entries()].map(([k, v]) => ({ params: JSON.parse(k), score: meanOf(v) }));
+  table.sort((a, b) => (surv ? b.score - a.score : a.score - b.score));
+  return { best: table[0].params, metric: surv ? "Harrell's C (higher is better)" : 'log-loss (lower is better)', folds, table };
+}
+
 /** Fit one model on encoded X. Returns a plain-JSON model. */
 export function fitModel(type, X, out, params = {}, seed = 1) {
+  if (params.tune && TUNING_GRIDS[type]) {
+    const t = tuneModel(type, X, out, params, seed);
+    return { ...fitModel(type, X, out, { ...params, ...t.best, tune: false }, seed), tuning: t };
+  }
   const P = { ...DEFAULTS[type], ...params };
+  const weights = P.classWeight === 'balanced' && MODELS[type].task === 'binary' ? balancedWeights(out) : null;
   switch (type) {
     case 'logit_enet': case 'cox_enet': {
       const family = type === 'logit_enet' ? 'binomial' : 'cox';
-      const cv = cvLambda(X, out, family, P.alpha, Math.min(P.innerFolds, Math.max(2, Math.floor(X.length / 10))), seed + 101, P.nlambda);
+      const cv = cvLambda(X, out, family, P.alpha, Math.min(P.innerFolds, Math.max(2, Math.floor(X.length / 10))), seed + 101, P.nlambda, weights);
       const k = P.lambdaRule === 'min' ? cv.kMin : cv.k1se, s = cv.full.path[k];
       const model = { type, alpha: P.alpha, lambda: s.lambda, lambdaRule: P.lambdaRule, b0: s.b0, beta: s.beta, nonzero: s.nonzero,
         cvPath: cv.lambdas.map((l, i) => ({ lambda: l, cvm: cv.cvm[i], cvsd: cv.cvsd[i], nonzero: cv.full.path[i].nonzero })), lambdaMin: cv.lambdas[cv.kMin], lambda1se: cv.lambdas[cv.k1se] };
       if (family === 'cox') model.baseline = breslowBaseline(out.time, out.status, linPred(X, 0, s.beta));
       return model;
     }
-    case 'tree': { const m = decisionTree(X, out, { ...P, seed }); return { type, tree: m.tree }; }
-    case 'rf': { const m = randomForest(X, out, { ...P, seed }); return { type, mtry: m.mtry, trees: m.trees }; }
-    case 'gbm': return { ...gradientBoosting(X, out, { ...P, loss: 'logistic', seed }), type };
+    case 'tree': { const m = decisionTree(X, out, { ...P, seed, weights }); return { type, tree: m.tree }; }
+    case 'rf': { const m = randomForest(X, out, { ...P, seed, weights }); return { type, mtry: m.mtry, trees: m.trees }; }
+    case 'gbm': return { ...gradientBoosting(X, out, { ...P, loss: 'logistic', seed, weights }), type };
     case 'rsf': { const { oob, ...m } = randomSurvivalForest(X, out.time, out.status, { ...P, seed }); return { ...m, type }; }
     case 'gbm_cox': {
       const m = gradientBoosting(X, out, { ...P, loss: 'cox', seed });
@@ -555,6 +628,69 @@ export function calibrationLogistic(y, prob) {
     b0 += d0; b1 += d1; if (Math.abs(d0) + Math.abs(d1) < 1e-13) break;
   }
   return { intercept: a, slope: b1, slopeIntercept: b0 };
+}
+
+/**
+ * Locally weighted scatterplot smoothing, a port of R's lowess() (Cleveland 1979; R's C clowess):
+ * tricube weights over the nearest f·n points, local linear fits, `iter` robustness iterations,
+ * and linear interpolation across points within delta. Returns fitted values in sorted-x order.
+ */
+export function lowess(x, y, { f = 2 / 3, iter = 3, delta = null } = {}) {
+  const o = x.map((v, i) => [v, y[i]]).sort((a, b) => a[0] - b[0]), xs = o.map(v => v[0]), ys = o.map(v => v[1]), n = xs.length;
+  if (n < 2) return { x: xs, y: ys.slice() };
+  const dl = delta ?? 0.01 * (xs[n - 1] - xs[0]), fit = new Array(n).fill(0), rw = new Array(n).fill(1), res = new Array(n), w = new Array(n).fill(0);
+  const ns = Math.max(2, Math.min(n, Math.floor(f * n + 1e-7)));
+  const lowest = (xv, nleft, nright, userw) => {
+    const range = xs[n - 1] - xs[0], h = Math.max(xv - xs[nleft], xs[nright] - xv), h9 = 0.999 * h, h1 = 0.001 * h;
+    let a = 0, j = nleft;
+    while (j < n) {
+      w[j] = 0; const r = Math.abs(xs[j] - xv);
+      if (r <= h9) { w[j] = r <= h1 ? 1 : (1 - (r / h) ** 3) ** 3; if (userw) w[j] *= rw[j]; a += w[j]; }
+      else if (xs[j] > xv) break;
+      j++;
+    }
+    const nrt = j - 1;
+    if (a <= 0) return null;
+    for (j = nleft; j <= nrt; j++) w[j] /= a;
+    if (h > 0) {
+      a = 0; for (j = nleft; j <= nrt; j++) a += w[j] * xs[j];
+      let b = xv - a, c = 0; for (j = nleft; j <= nrt; j++) c += w[j] * (xs[j] - a) * (xs[j] - a);
+      if (Math.sqrt(c) > 0.001 * range) { b /= c; for (j = nleft; j <= nrt; j++) w[j] *= b * (xs[j] - a) + 1; }
+    }
+    let out = 0; for (j = nleft; j <= nrt; j++) out += w[j] * ys[j];
+    return out;
+  };
+  for (let it = 1; it <= iter + 1; it++) {
+    let nleft = 0, nright = ns - 1, last = -1, i = 0;
+    for (;;) {
+      if (nright < n - 1) { const d1 = xs[i] - xs[nleft], d2 = xs[nright + 1] - xs[i]; if (d1 > d2) { nleft++; nright++; continue; } }
+      const v = lowest(xs[i], nleft, nright, it > 1);
+      fit[i] = v == null ? ys[i] : v;
+      if (last < i - 1) { const denom = xs[i] - xs[last]; for (let j = last + 1; j < i; j++) { const al = (xs[j] - xs[last]) / denom; fit[j] = al * fit[i] + (1 - al) * fit[last]; } }
+      last = i;
+      const cut = xs[last] + dl;
+      for (i = last + 1; i < n; i++) { if (xs[i] > cut) break; if (xs[i] === xs[last]) { fit[i] = fit[last]; last = i; } }
+      i = Math.max(last + 1, i - 1);
+      if (last >= n - 1) break;
+    }
+    for (let k = 0; k < n; k++) res[k] = ys[k] - fit[k];
+    let sc = 0; for (let k = 0; k < n; k++) sc += Math.abs(res[k]); sc /= n;
+    if (it > iter) break;
+    const ar = res.map(Math.abs).sort((a, b) => a - b), m1 = Math.floor(n / 2);
+    const cmad = n % 2 === 0 ? 3 * (ar[m1] + ar[n - m1 - 1]) : 6 * ar[m1];
+    if (cmad < 1e-7 * sc) break;
+    const c9 = 0.999 * cmad, c1 = 0.001 * cmad;
+    for (let k = 0; k < n; k++) { const r = Math.abs(res[k]); rw[k] = r <= c1 ? 1 : r <= c9 ? (1 - (r / cmad) ** 2) ** 2 : 0; }
+  }
+  return { x: xs, y: fit };
+}
+
+/** Smoothed calibration curve: lowess of the outcome on predicted risk (iter = 0, as rms::val.prob), ≤ 200 points. */
+export function smoothCalibration(y, prob) {
+  const ok = prob.map((p, i) => [p, y[i]]).filter(v => Number.isFinite(v[0]));
+  if (ok.length < 10) return [];
+  const l = lowess(ok.map(v => v[0]), ok.map(v => v[1]), { iter: 0 }), step = Math.max(1, Math.floor(l.x.length / 200));
+  return l.x.map((x, i) => [x, Math.min(1, Math.max(0, l.y[i]))]).filter((_, i) => i % step === 0 || i === l.x.length - 1);
 }
 
 /** Equal-count bins of predicted risk with observed proportions. */
@@ -649,7 +785,7 @@ export function trainEvaluate(spec) {
   const horizon = survival ? (Number.isFinite(spec.horizon) ? spec.horizon : defaultHorizon(oc.time, oc.status)) : null;
   const strata = survival ? oc.status : oc.y;
   const sub = idx => (survival ? { time: idx.map(i => oc.time[i]), status: idx.map(i => oc.status[i]) } : idx.map(i => oc.y[i]));
-  const fitOn = (trIdx, s) => { const pre = fitPreprocessor(headers, trIdx.map(i => R[i]), features), X = transform(pre, headers, trIdx.map(i => R[i])).X; return { pre, model: fitModel(type, X, sub(trIdx), params, s) }; };
+  const fitOn = (trIdx, s) => { const pre = fitPreprocessor(headers, trIdx.map(i => R[i]), features, { imputation: spec.imputation }), X = transform(pre, headers, trIdx.map(i => R[i])).X; return { pre, model: fitModel(type, X, sub(trIdx), params, s) }; };
   const predictOn = (fit, teIdx, rowsOverride = null) => predictModel(fit.model, transform(fit.pre, headers, rowsOverride || teIdx.map(i => R[i])).X, { times: survival ? [horizon] : [] });
 
   const k = Math.max(2, Math.min(folds, Math.floor(n / 4))), perFold = [], oof = new Array(n).fill(NaN), oofSurv = new Array(n).fill(NaN), oofRisk = new Array(n).fill(NaN);
@@ -663,12 +799,12 @@ export function trainEvaluate(spec) {
       let m;
       if (survival) { m = survivalMetrics(y.time, y.status, pr.risk, pr.surv[0], horizon); if (rep === 0) te.forEach((i, j) => { oofRisk[i] = pr.risk[j]; oofSurv[i] = pr.surv[0][j]; }); }
       else { m = binaryMetrics(y, pr.prob); if (rep === 0) te.forEach((i, j) => { oof[i] = pr.prob[j]; }); }
-      perFold.push({ repeat: rep, fold: f, n: te.length, ...(survival ? { cIndex: m.cIndex, brier: m.brier, ipa: m.ipa } : { auc: m.auc, brier: m.brier, slope: m.calibration.slope, intercept: m.calibration.intercept }) });
+      perFold.push({ repeat: rep, fold: f, n: te.length, ...(fit.model.tuning ? { tuned: fit.model.tuning.best } : {}), ...(survival ? { cIndex: m.cIndex, brier: m.brier, ipa: m.ipa } : { auc: m.auc, brier: m.brier, slope: m.calibration.slope, intercept: m.calibration.intercept }) });
       if (importance && rep === 0) permutationImportance(fit, te.map(i => R[i]), y, features, headers, survival, horizon, seed + f).forEach(d => imp.get(d.feature).push(d.drop));
     }
   }
   const key = survival ? 'cIndex' : 'auc', foldVals = perFold.map(p => p[key]).filter(Number.isFinite);
-  const result = { version: ML_VERSION, model: type, label: MODELS[type].label, task: outcome.type, outcome, params: { ...DEFAULTS[type], ...params }, seed, folds: k, repeats,
+  const result = { version: ML_VERSION, model: type, label: MODELS[type].label, task: outcome.type, outcome, params: { ...DEFAULTS[type], ...params }, seed, folds: k, repeats, imputation: spec.imputation || 'median',
     n, dropped: rows.length - n, features: features.map(f => f.name), horizon, perFold,
     summary: { metric: key, mean: meanOf(foldVals), sd: sdOf(foldVals), min: Math.min(...foldVals), max: Math.max(...foldVals) } };
   if (survival) {
@@ -680,6 +816,7 @@ export function trainEvaluate(spec) {
     result.positives = oc.y.reduce((a, b) => a + b, 0);
     result.pooled = binaryMetrics(oc.y, oof);
     result.calibration = calibrationBins(oc.y, oof);
+    result.calibrationSmooth = smoothCalibration(oc.y, oof);
     result.roc = rocCurve(oc.y, oof);
   }
   result.oof = survival ? { time: oc.time, status: oc.status, risk: oofRisk, surv: oofSurv } : { y: oc.y, prob: oof };
@@ -688,6 +825,7 @@ export function trainEvaluate(spec) {
   if (site) result.sites = leaveOneSiteOut(headers, R, site, fitOn, predictOn, sub, survival, horizon, seed);
   // final model on all rows
   const final = fitOn([...Array(n).keys()], seed);
+  if (final.model.tuning) result.tuning = final.model.tuning;
   result.finalModel = { version: ML_VERSION, type, task: outcome.type, outcome, features, preprocessor: final.pre, model: final.model, horizon, trainedOn: { n, ...(survival ? { events: result.events } : { positives: result.positives }) } };
   result.coefficients = coefTable(final);
   result.ms = Date.now() - t0;
@@ -761,7 +899,7 @@ export function applyModel(frozen, headers, rows) {
   const out = { n: use.length, imputed: tr.imputed, unseenLevels: tr.unseen, predictions: survival ? pr.risk.map((r, i) => ({ risk: r, survAtHorizon: pr.surv[0][i] })) : pr.prob.map(p => ({ prob: p })) };
   if (!oc) return out;
   if (survival) { out.metrics = survivalMetrics(oc.time, oc.status, pr.risk, pr.surv[0], frozen.horizon); out.calibration = survivalCalibration(oc.time, oc.status, pr.surv[0], frozen.horizon); }
-  else { out.metrics = binaryMetrics(oc.y, pr.prob); out.calibration = calibrationBins(oc.y, pr.prob); out.roc = rocCurve(oc.y, pr.prob); }
+  else { out.metrics = binaryMetrics(oc.y, pr.prob); out.calibration = calibrationBins(oc.y, pr.prob); out.calibrationSmooth = smoothCalibration(oc.y, pr.prob); out.roc = rocCurve(oc.y, pr.prob); }
   return out;
 }
 

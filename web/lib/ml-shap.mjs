@@ -7,6 +7,8 @@
 
 /** Leaf value used for explanation. */
 const leafValue = node => (node.chf ? node.chf.reduce((s, v) => s + v, 0) : node.v);
+/** Node cover: weighted sample count when the tree was grown with sample weights, else the count. */
+const cover = node => node.c ?? node.n;
 
 function extendPath(P, depth, zero, one, feature) {
   P.f[depth] = feature; P.z[depth] = zero; P.o[depth] = one; P.w[depth] = depth === 0 ? 1 : 0;
@@ -47,12 +49,12 @@ function recurse(node, x, phi, parent, depth, zero, one, feature, scale) {
   let inZero = 1, inOne = 1, d = depth, k = 0;
   while (k <= d && P.f[k] !== node.f) k++;
   if (k !== d + 1) { inZero = P.z[k]; inOne = P.o[k]; unwindPath(P, d, k); d--; }
-  recurse(hot, x, phi, P, d + 1, hot.n / node.n * inZero, inOne, node.f, scale);
-  recurse(cold, x, phi, P, d + 1, cold.n / node.n * inZero, 0, node.f, scale);
+  recurse(hot, x, phi, P, d + 1, cover(hot) / cover(node) * inZero, inOne, node.f, scale);
+  recurse(cold, x, phi, P, d + 1, cover(cold) / cover(node) * inZero, 0, node.f, scale);
 }
 function treeDepth(t) { return t.f === undefined ? 0 : 1 + Math.max(treeDepth(t.l), treeDepth(t.r)); }
 /** Expected leaf value under the training distribution (cover-weighted). */
-function treeExpectation(t) { return t.f === undefined ? leafValue(t) : (t.l.n * treeExpectation(t.l) + t.r.n * treeExpectation(t.r)) / t.n; }
+function treeExpectation(t) { return t.f === undefined ? leafValue(t) : (cover(t.l) * treeExpectation(t.l) + cover(t.r) * treeExpectation(t.r)) / cover(t); }
 
 /** SHAP values for one tree; adds into phi (length p). */
 export function treeShap(tree, x, phi, scale = 1) {

@@ -62,6 +62,19 @@ Stage 1 completion (`tests/ml-extra.test.mjs`):
 | Trustworthiness | `sklearn.manifold.trustworthiness` | 1e-12 |
 | UMAP a/b curve (spread 1, min_dist 0.1) | scipy `curve_fit`, as umap-learn | 2e-6 |
 
+Stage 1 final items (`tests/ml-more.test.mjs`):
+
+| Engine | Reference | Tolerance |
+|---|---|---|
+| Class-weighted elastic-net logistic (coefficients, λ-max) | R `glmnet(weights = …)` | 5e-8 / 1e-12 |
+| Class-weighted CART; weighted gradient boosting; TreeSHAP on a weighted tree | scikit-learn `class_weight="balanced"`, `fit(sample_weight)`; `shap.TreeExplainer` | 1e-10 – 1e-12 |
+| Iterative imputation, fit and transform (number of rounds too) | scikit-learn `IterativeImputer(Ridge(alpha = 1), initial_strategy = "median", skip_complete = True)` | 1e-10 |
+| lowess (iter 3, iter 0, f = 0.3; tied x) | R `stats::lowess` | 1e-12 |
+| t-SNE joint probabilities; KL divergence and gradient | scikit-learn `_joint_probabilities`, `_kl_divergence` | 1e-9 / 1e-10 |
+| t-SNE full run (500 iterations, fixed start) | scikit-learn final KL from float32 and float64 starts (0.440 and 0.495): ours must fall in that band ± 5% | band |
+
+Nested tuning is property-tested: choices come from the documented grid and repeat for a seed.
+
 UMAP layouts, bootstrap optimism and the training report are property-tested: same seed gives the same result, UMAP preserves neighbourhoods better than PCA on the planted subtypes, optimism lowers apparent performance, and SHAP ranks the true prognostic features first.
 
 ## Pretrained models (`tests/models.test.mjs`, `npm run test:models`)
@@ -76,6 +89,18 @@ UMAP layouts, bootstrap optimism and the training report are property-tested: sa
 | Full int8 inference on sample texts (`npm run test:models`, needs the weights) | full-precision (fp32) model labels | agreement ≥ Python int8 − 1 pt, and ≥ 90% |
 
 Dynamic int8 models are not bit-reproducible across runtimes: integer kernels differ, and even Python onnxruntime's own optimisation levels disagree by several logits. So full inference is judged against the full-precision model. On the sample texts this runtime's token labels agree with fp32 on 93–95% of tokens, and Python's int8 labels on 92–95%. These checks show the runtime is faithful; they do not measure the model's accuracy.
+
+## Cancer data connectors (`tests/cancer.test.mjs`)
+
+The Gene dossier queries public sources live, so its tests check the transformations offline on recorded KRAS responses (`tests/fixtures/cancer-api/capture.mjs`):
+
+- **cBioPortal mutation frequency:** each sample is counted once, even when it carries several mutations. The per-study counts match an independent recount (pancreatic 117/179, colorectal 218/534, lung adenocarcinoma 168/566; all 32 studies 763/10,443). CIs use the validated Clopper–Pearson engine.
+- **Open Targets:** null records are dropped, drugs are ordered by clinical stage, and UniProt evidence codes are removed.
+- **CIViC:** a gene must appear as a whole word in the molecular-profile name (KRASP1 and BRAF do not count for KRAS). Evidence is counted by level, and the most actionable items come first.
+- **GDC and trials:** GDC case counts are read for the requested gene only. Trials ranking puts trials naming the gene in the title first.
+- **Input checks:** gene symbols are validated before any query, and every connector host is on the egress allowlist.
+
+These checks cover the code, not the sources: the dossier shows each source's own data as retrieved, with its retrieval time.
 
 Random forests and random survival forests draw random numbers differently from other libraries, so they are tested by property: the same seed gives the same model, they recover the known signal in the synthetic biomarker cohort, and out-of-bag performance is below training performance. Cross-validation, leave-one-site-out validation, model export and re-application, subtype recovery, model cards and the TRIPOD+AI draft are also tested.
 
